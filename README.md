@@ -1,8 +1,8 @@
-# Bayesian Latent Factor Community Modelling (BLFCM): Using matrix factorisation for dark diversity estimation
+# Bayesian Matrix Factorisation Community Modelling (BLFCM): Using matrix factorisation for dark diversity estimation
 
 ## Overview
 
-This repository implements a **BLFCM** using matrix factorization to estimate **dark diversity**—the set of species absent from a site despite having suitable environmental conditions. The method uses **counterfactual predictions** to reconstruct the potential species pool by separating environmental effects from unmeasured drivers of absence (e.g., land-use degradation, dispersal limitation, biotic interactions).
+This repository implements a **BMFCM** using matrix factorization to estimate **dark diversity**—the set of species absent from a site despite having suitable environmental conditions. The method uses **counterfactual predictions** to reconstruct the potential species pool by separating environmental effects from unmeasured drivers of absence (e.g., land-use degradation, dispersal limitation, biotic interactions).
 
 ## The Problem: What is Dark Diversity?
 
