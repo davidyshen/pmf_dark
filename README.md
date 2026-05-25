@@ -1,8 +1,8 @@
-# Bayesian Matrix Factorisation Community Modelling (BLFCM): Using matrix factorisation for dark diversity estimation
+# PMF-dark: Using matrix factorisation for dark diversity estimation
 
 ## Overview
 
-This repository implements a **BMFCM** using matrix factorisation to estimate **dark diversity**—the set of species absent from a site despite having suitable environmental conditions. The method uses **counterfactual predictions** to reconstruct the potential species pool by separating environmental effects from unmeasured drivers of absence (e.g., land-use degradation, dispersal limitation, biotic interactions).
+This repository implements a **PMF-dark** using Bayesian Probabilistic Matrix Factorisation to estimate **dark diversity** - the set of species absent from a site despite having suitable environmental conditions. The method uses **counterfactual predictions** to reconstruct the potential species pool by separating environmental effects from unmeasured drivers of absence (e.g., land-use degradation, dispersal limitation, biotic interactions).
 
 ## The Problem: What is Dark Diversity?
 
@@ -23,11 +23,11 @@ Quantifying dark diversity is crucial for:
 
 The framework decomposes species occurrence probabilities into **three additive components**:
 
-$$\text{logit}(p_{ij}) = \underbrace{\alpha_j}_{\text{Intercept}} + \underbrace{\mathbf{x}_i^\top \boldsymbol{\beta}_j}_{\text{Environmental Effects}} + \underbrace{\mathbf{w}_i^\top \mathbf{z}_j}_{\text{Latent Factors}}$$
+$$\text{logit}(p_{ij}) = \underbrace{\alpha_j}_{\text{Intercept}} + \underbrace{f_j(\mathbf{x}_i)}_{\text{Environmental Effects}} + \underbrace{\mathbf{w}_i^\top \mathbf{z}_j}_{\text{Latent Factors}}$$
 
 Where:
 - **$\alpha_j$**: Species-specific baseline prevalence
-- **$\mathbf{x}_i^\top \boldsymbol{\beta}_j$**: Species response to measured abiotic variables (temperature, pH, elevation, etc.)
+- **$f_j(\mathbf{x}_i)$**: Environmental response function to measured abiotic variables (temperature, pH, elevation, etc.), which can be modelled as linear, Gaussian niche, or non-linear (e.g. Bayesian neural network)
 - **$\mathbf{w}_i^\top \mathbf{z}_j$**: Latent factors capturing unmeasured drivers of absence
 
 ### Key Innovation: Counterfactual Predictions
@@ -52,7 +52,7 @@ The model is fit using **Pyro-based SVI**, which:
 ## Repository Structure
 
 ```
-Matrix-factorisation/
+PMF_dark/
 ├── README.md                                    # This file
 ├── mat_fact_dark_div.ipynb                     # Main analysis notebook
 ├── data/
@@ -84,8 +84,8 @@ To ensure PyTorch is installed with the correct CUDA version for your system, it
 #### 1. Setup Virtual Environment
 ```bash
 # Clone the repository
-git clone https://github.com/davidyshen/Matrix-factorisation.git
-cd Matrix-factorisation
+git clone https://github.com/davidyshen/PMF_dark.git
+cd PMF_dark
 
 # Create virtual environment (optional but recommended)
 python -m venv .venv
