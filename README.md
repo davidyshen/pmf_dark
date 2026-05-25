@@ -2,7 +2,7 @@
 
 ## Overview
 
-This repository implements a **BMFCM** using matrix factorization to estimate **dark diversity**—the set of species absent from a site despite having suitable environmental conditions. The method uses **counterfactual predictions** to reconstruct the potential species pool by separating environmental effects from unmeasured drivers of absence (e.g., land-use degradation, dispersal limitation, biotic interactions).
+This repository implements a **BMFCM** using matrix factorisation to estimate **dark diversity**—the set of species absent from a site despite having suitable environmental conditions. The method uses **counterfactual predictions** to reconstruct the potential species pool by separating environmental effects from unmeasured drivers of absence (e.g., land-use degradation, dispersal limitation, biotic interactions).
 
 ## The Problem: What is Dark Diversity?
 
@@ -45,7 +45,7 @@ Where:
 
 The model is fit using **Pyro-based SVI**, which:
 - Handles high-dimensional ecological matrices efficiently
-- Treats inference as an optimization problem (ELBO maximization)
+- Treats inference as an optimisation problem (ELBO maximisation)
 - Scales to thousands of sites and species
 - Requires minimal computational resources
 
@@ -124,11 +124,11 @@ poetry install
    ```
 
 3. The notebook will:
-   - Load and standardize data
-   - Fit the matrix factorization model (2,500 iterations)
+   - Load and standardise data
+   - Fit the matrix factorisation model (2,500 iterations)
    - Generate predictions and save CSV outputs
 
-### Customization
+### Customisation
 
 Key parameters in the notebook:
 
@@ -203,6 +203,6 @@ site_2,14.8,6.9,520,...,id_2,pristine
 
 ### Key Concepts
 - **Joint Species Distribution Models (JSDMs)**: Latent variable models for multivariate species data
-- **Matrix Factorization**: Low-rank decomposition of high-dimensional species matrices
+- **Matrix Factorisation**: Low-rank decomposition of high-dimensional species matrices
 - **Stochastic Variational Inference**: Scalable Bayesian inference for probabilistic models
 - **Counterfactual Predictions**: Causal inference approach to estimate potential outcomes
