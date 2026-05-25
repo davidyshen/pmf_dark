@@ -49,14 +49,6 @@ The model is fit using **Pyro-based SVI**, which:
 - Scales to thousands of sites and species
 - Requires minimal computational resources
 
-### Optional: Spatial Autocorrelation Modeling
-
-An extended model accounts for spatially-structured patterns using **Thin Plate Splines (TPS)**:
-
-$$\text{logit}(p_{ij}) = \alpha_j + \mathbf{x}_i^\top \boldsymbol{\beta}_j + \mathbf{w}_i^\top \mathbf{z}_j + f(s_i)$$
-
-Where $f(s_i) = \sum_{k=1}^{K} \phi_k(s_i) \gamma_{kj}$ captures spatially-autocorrelated effects.
-
 ## Repository Structure
 
 ```
@@ -70,20 +62,16 @@ Matrix-factorisation/
 └── output/
     ├── mat_fact_predicted_probabilities_full.csv           # Full model predictions
     ├── mat_fact_predicted_probabilities_env_only.csv       # Environment-only predictions
-    ├── mat_fact_dark_diversity_proxy.csv                   # Dark diversity estimates
-    ├── mat_fact_predicted_probabilities_full_spatial.csv   # Spatial model: full predictions
-    ├── mat_fact_predicted_probabilities_env_only_spatial.csv # Spatial model: env-only
-    ├── mat_fact_dark_diversity_proxy_spatial.csv           # Spatial model: dark diversity
-    └── model_comparison_metrics_spatial.csv                 # Performance metrics comparison
+    └── mat_fact_dark_diversity_proxy.csv                   # Dark diversity estimates
 ```
 
 ## Installation
 
 ### Requirements
 
-- Python 3.8+
-- PyTorch
-- Pyro
+- Python 3.13 or 3.14
+- PyTorch (with CUDA support if using GPU)
+- Pyro (pyro-ppl)
 - Pandas
 - NumPy
 - scikit-learn
@@ -91,17 +79,35 @@ Matrix-factorisation/
 
 ### Setup
 
+To ensure PyTorch is installed with the correct CUDA version for your system, it is recommended to install PyTorch manually **first** before installing the package or its other dependencies.
+
+#### 1. Setup Virtual Environment
 ```bash
 # Clone the repository
 git clone https://github.com/davidyshen/Matrix-factorisation.git
 cd Matrix-factorisation
 
 # Create virtual environment (optional but recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+```
 
-# Install dependencies
-pip install torch pyro-ppl pandas numpy scikit-learn scipy jupyter
+#### 2. Install PyTorch with CUDA
+Visit the [PyTorch Getting Started guide](https://pytorch.org/get-started/locally/) to select the correct command for your CUDA version and OS. For example, to install PyTorch with CUDA 12.4 support on Windows/Linux:
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu124
+```
+
+#### 3. Install remaining dependencies
+If installing via pip:
+```bash
+pip install pyro-ppl pandas numpy scikit-learn scipy jupyter
+```
+
+If using Poetry:
+```bash
+# This will install the package and its remaining dependencies into your environment
+poetry install
 ```
 
 ## Usage
@@ -111,7 +117,6 @@ pip install torch pyro-ppl pandas numpy scikit-learn scipy jupyter
 1. Prepare your data in `data/` directory:
    - `survey.csv`: Species presence/absence (rows = sites, columns = species, values = 0/1)
    - `env.csv`: Environmental predictors (rows = sites, columns = variables)
-   - Include spatial coordinates as 'x' and 'y' columns if using spatial model
 
 2. Open and run the Jupyter notebook:
    ```bash
@@ -120,10 +125,8 @@ pip install torch pyro-ppl pandas numpy scikit-learn scipy jupyter
 
 3. The notebook will:
    - Load and standardize data
-   - Fit the non-spatial matrix factorization model (2,500 iterations)
-   - Fit the spatial model with TPS random effects (6,000 iterations)
+   - Fit the matrix factorization model (2,500 iterations)
    - Generate predictions and save CSV outputs
-   - Compare model performance
 
 ### Customization
 
@@ -132,11 +135,7 @@ Key parameters in the notebook:
 ```python
 # Model parameters
 num_factors = 5                # Number of latent factors (adjust based on data complexity)
-num_iterations = 2500          # Non-spatial model iterations
-num_iterations_spatial = 6000  # Spatial model iterations
-
-# TPS spatial model
-num_knots = 10                 # Basis functions for spatial smoothing (≈ sqrt(n_sites))
+num_iterations = 2500          # Model iterations
 
 # Learning rate
 Adam({"lr": 0.01})            # Adjust if convergence is slow
@@ -144,18 +143,9 @@ Adam({"lr": 0.01})            # Adjust if convergence is slow
 
 ## Output Files
 
-### Non-Spatial Model
 - **mat_fact_predicted_probabilities_full.csv**: Predicted species occurrence probabilities including all effects
 - **mat_fact_predicted_probabilities_env_only.csv**: Predicted probabilities using only environmental effects
 - **mat_fact_dark_diversity_proxy.csv**: Dark diversity estimates (full - env_only)
-
-### Spatial Model
-- **mat_fact_predicted_probabilities_full_spatial.csv**: Full predictions with spatial effects
-- **mat_fact_predicted_probabilities_env_only_spatial.csv**: Environmental-only predictions (spatial model)
-- **mat_fact_dark_diversity_proxy_spatial.csv**: Dark diversity with spatial component
-
-### Model Comparison
-- **model_comparison_metrics_spatial.csv**: Performance metrics (AUC, Brier score, log loss, accuracy, precision, recall, F1)
 
 ## Data Format
 
@@ -193,19 +183,12 @@ site_2,14.8,6.9,520,...,id_2,pristine
 - **Brier Score**: Prediction calibration error (lower is better)
 - **F1 Score**: Balance between precision and recall
 
-## Model Comparison
-
-The notebook fits both non-spatial and spatial models. Results show:
-- **Non-spatial model**: Generally better overall performance
-- **Spatial model**: Useful as sensitivity analysis; accounts for unmeasured spatial structure
-
 ## Advantages of This Approach
 
 ✓ **No subjective benchmarking**: Automated separation of environmental vs. unmeasured effects  
 ✓ **Mathematically principled**: Latent factors naturally absorb degradation signals  
 ✓ **Scalable**: SVI handles thousands of species and sites  
 ✓ **Species-specific**: Each species can have unique environmental responses  
-✓ **Flexible**: Optional spatial modeling for heterogeneous landscapes  
 ✓ **Reproducible**: Fully probabilistic framework with clear assumptions
 
 ## Limitations
