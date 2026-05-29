@@ -132,6 +132,13 @@ def compute_dark_diversity(y, x,
                            model_name = "linear", num_factors = 1, method = "svi", cuda = False, 
                            include_latent = True, return_means = True, **kwargs ):
     
+    if cuda and not torch.cuda.is_available():
+        import warnings
+        warnings.warn(
+            "CUDA was requested (cuda=True), but PyTorch cannot detect a CUDA-enabled GPU. "
+            "Please check your NVIDIA drivers and reinstall PyTorch with CUDA support. "
+            "Falling back to CPU."
+        )
 
     # For bnn only svi is supported
     if method == "mcmc" and model_name == "bnn":
