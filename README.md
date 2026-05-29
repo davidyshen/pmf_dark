@@ -98,6 +98,12 @@ Visit the [PyTorch Getting Started guide](https://pytorch.org/get-started/locall
 pip install torch --index-url https://download.pytorch.org/whl/cu124
 ```
 
+If not using CUDA, simply install the CPU version:
+```bash
+pip install torch
+```
+
+
 #### 3. Install remaining dependencies
 If installing via pip:
 ```bash
