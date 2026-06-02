@@ -8,42 +8,47 @@ import os
 # Add src/ to path so we can import pmf_dark
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
-from pmf_dark.darkdiv import infer_y_type, prepare_data, compute_predictions, compute_dark_diversity
+from pmf_dark.darkdiv import (
+    infer_y_type,
+    prepare_data,
+    compute_predictions,
+    compute_dark_diversity,
+)
+
 
 class TestDarkDiv(unittest.TestCase):
-    
     def setUp(self):
         # Create small mock datasets for testing
         self.n_sites = 20
         self.n_species = 5
         self.n_env = 2
-        
+
         # Binary data
         self.y_binary = pd.DataFrame(
             np.random.randint(0, 2, size=(self.n_sites, self.n_species)),
             index=[f"site_{i}" for i in range(self.n_sites)],
-            columns=[f"spec_{j}" for j in range(self.n_species)]
+            columns=[f"spec_{j}" for j in range(self.n_species)],
         )
-        
+
         # Count data
         self.y_count = pd.DataFrame(
             np.random.randint(0, 10, size=(self.n_sites, self.n_species)),
             index=[f"site_{i}" for i in range(self.n_sites)],
-            columns=[f"spec_{j}" for j in range(self.n_species)]
+            columns=[f"spec_{j}" for j in range(self.n_species)],
         )
-        
+
         # Env predictors
         self.x = pd.DataFrame(
             np.random.randn(self.n_sites, self.n_env),
             index=[f"site_{i}" for i in range(self.n_sites)],
-            columns=[f"env_{j}" for j in range(self.n_env)]
+            columns=[f"env_{j}" for j in range(self.n_env)],
         )
 
     def test_infer_y_type_presence_absence(self):
         # Binary dataframe should be inferred as presence_absence
         y_type = infer_y_type(self.y_binary)
         self.assertEqual(y_type, "presence_absence")
-        
+
         # Binary torch tensor should also work
         y_tensor = torch.tensor(self.y_binary.values)
         self.assertEqual(infer_y_type(y_tensor), "presence_absence")
@@ -68,12 +73,16 @@ class TestDarkDiv(unittest.TestCase):
 
     def test_prepare_data(self):
         data = prepare_data(self.x, self.y_binary, cuda=False)
-        
+
         # Check standardisation of x (uses ddof=1 by default in pandas)
         x_np = data["x"].cpu().numpy()
-        np.testing.assert_array_almost_equal(x_np.mean(axis=0), np.zeros(self.n_env), decimal=5)
-        np.testing.assert_array_almost_equal(x_np.std(axis=0, ddof=1), np.ones(self.n_env), decimal=5)
-        
+        np.testing.assert_array_almost_equal(
+            x_np.mean(axis=0), np.zeros(self.n_env), decimal=5
+        )
+        np.testing.assert_array_almost_equal(
+            x_np.std(axis=0, ddof=1), np.ones(self.n_env), decimal=5
+        )
+
         # Check shapes and types
         self.assertEqual(data["x"].shape, (self.n_sites, self.n_env))
         self.assertEqual(data["y"].shape, (self.n_sites, self.n_species))
@@ -88,50 +97,51 @@ class TestDarkDiv(unittest.TestCase):
             compute_dark_diversity(
                 y=self.y_binary,
                 x=self.x,
-                model_name="linear",
+                model_type="linear",
                 method="mcmc",
-                batch_size=10
+                batch_size=10,
             )
 
     def test_svi_predictions_shape_and_chunking(self):
         # Fix seeds for reproducibility
         torch.manual_seed(42)
         np.random.seed(42)
-        
-        # Run full-batch prediction
+
+        # Run full-batch prediction (defaults to model_type="gaussian")
         pred_full = compute_dark_diversity(
             y=self.y_binary,
             x=self.x,
-            model_name="linear",
             num_factors=1,
             method="svi",
             num_iterations=20,
             return_means=True,
-            pred_batch_size=None
+            pred_batch_size=None,
         )
-        
+
         # Reset seed to get identical fit
         torch.manual_seed(42)
         np.random.seed(42)
-        
-        # Run chunked prediction (batch size 5)
+
+        # Run chunked prediction (batch size 5, defaults to model_type="gaussian")
         pred_chunk = compute_dark_diversity(
             y=self.y_binary,
             x=self.x,
-            model_name="linear",
             num_factors=1,
             method="svi",
             num_iterations=20,
             return_means=True,
-            pred_batch_size=5
+            pred_batch_size=5,
         )
-        
+
         # Check shape matches
         self.assertEqual(pred_full.shape, (self.n_sites, self.n_species))
         self.assertEqual(pred_chunk.shape, (self.n_sites, self.n_species))
-        
+
         # Check results are identical
-        np.testing.assert_array_almost_equal(pred_full.values, pred_chunk.values, decimal=5)
+        np.testing.assert_array_almost_equal(
+            pred_full.values, pred_chunk.values, decimal=5
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

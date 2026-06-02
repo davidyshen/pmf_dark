@@ -76,7 +76,7 @@ def prepare_data(x, y, cuda=False):
 
 
 def compute_predictions(
-    samples, x, model_type="linear", include_latent=True, y_type="presence_absence"
+    samples, x, model_type="gaussian", include_latent=True, y_type="presence_absence"
 ):
 
     if model_type == "linear":
@@ -84,7 +84,7 @@ def compute_predictions(
         beta = samples["beta"].squeeze(1)
         eta = alpha[:, None, :] + torch.einsum("ij,sjk->sik", x, beta)
 
-    elif model_type == "gaussian":
+    elif model_type in ["gaussian", "gaussian_response_model"]:
         alpha = samples["alpha"].squeeze(1)
         mu = samples["mu"].squeeze(1)
         gamma = samples["gamma"].squeeze(1)
@@ -128,7 +128,7 @@ def compute_predictions(
 def compute_dark_diversity(
     y,
     x,
-    model_name="linear",
+    model_type="gaussian",
     num_factors=1,
     method="svi",
     cuda=False,
@@ -149,7 +149,7 @@ def compute_dark_diversity(
         )
 
     # For bnn only svi is supported
-    if method == "mcmc" and model_name == "bnn":
+    if method == "mcmc" and model_type == "bnn":
         raise ValueError(
             "MCMC is currently not supported for the Bayesian neural network model. "
             "Please use method='svi' instead."
@@ -165,15 +165,15 @@ def compute_dark_diversity(
     y = data["y"]
 
     # Load the model
-    if model_name == "linear":
+    if model_type == "linear":
         from .models import linear_model
 
         model = linear_model
-    elif model_name == "gaussian":
+    elif model_type in ["gaussian", "gaussian_response_model"]:
         from .models import gaussian
 
         model = gaussian
-    elif model_name == "bnn":
+    elif model_type == "bnn":
         from .models import bnn_model
 
         model = bnn_model
@@ -216,7 +216,7 @@ def compute_dark_diversity(
             pred_chunk = compute_predictions(
                 samples_chunk,
                 x_chunk,
-                model_type=model_name,
+                model_type=model_type,
                 include_latent=include_latent,
                 y_type=y_type,
             )
@@ -244,7 +244,7 @@ def compute_dark_diversity(
         pred = compute_predictions(
             fit["samples"],
             x,
-            model_type=model_name,
+            model_type=model_type,
             include_latent=include_latent,
             y_type=y_type,
         )
