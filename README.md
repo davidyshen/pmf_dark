@@ -4,75 +4,11 @@
 
 This repository implements a **PMF-dark** using Bayesian Probabilistic Matrix Factorisation to estimate **dark diversity** - the set of species absent from a site despite having suitable environmental conditions. The method uses **counterfactual predictions** to reconstruct the potential species pool by separating environmental effects from unmeasured drivers of absence (e.g., land-use degradation, dispersal limitation, biotic interactions).
 
-## The Problem: What is Dark Diversity?
-
-Traditional biodiversity assessments only count observed species (alpha diversity). However, many species are absent from sites where they *could* thrive based on environmental conditions. This "**dark diversity**" represents:
-
-- Species lost due to historical or ongoing land-use degradation
-- Species unable to reach suitable sites due to dispersal limitation
-- Species suppressed by biotic interactions
-
-Quantifying dark diversity is crucial for:
-
-- Conservation planning and restoration potential assessment
-- Understanding true biodiversity patterns
-- Identifying areas with highest restoration value
-
-## Methodology
-
-### Core Model
-
-The framework decomposes species occurrence probabilities into **three additive components**:
-
-$$\text{logit}(p_{ij}) = \underbrace{\alpha_j}_{\text{Intercept}} + \underbrace{f_j(\mathbf{x}_i)}_{\text{Environmental Effects}} + \underbrace{\mathbf{w}_i^\top \mathbf{z}_j}_{\text{Latent Factors}}$$
-
-Where:
-
-- **$\alpha_j$**: Species-specific baseline prevalence
-- **$f_j(\mathbf{x}_i)$**: Environmental response function to measured abiotic variables (temperature, pH, elevation, etc.), which can be modelled as linear, Gaussian niche, or non-linear (e.g. Bayesian neural network)
-- **$\mathbf{w}_i^\top \mathbf{z}_j$**: Latent factors capturing unmeasured drivers of absence
-
-### Key Innovation: Counterfactual Predictions
-
-1. **Full Predictions**: Include all components (environment + latent factors)
-   - Represents observed diversity with all drivers active
-
-2. **Environment-Only Predictions**: Exclude latent factors
-   - Represents potential diversity (setting $\mathbf{w}_i^\top \mathbf{z}_j = 0$)
-
-3. **Dark Diversity Proxy**: Difference between full and environment-only predictions
-   - Quantifies species lost to unmeasured stressors
-
-### Inference: Stochastic Variational Inference (SVI)
-
-The model is fit using **Pyro-based SVI**, which:
-
-- Handles high-dimensional ecological matrices efficiently
-- Treats inference as an optimisation problem (ELBO maximisation)
-- Scales to thousands of sites and species
-- Requires minimal computational resources
-
-## Repository Structure
-
-```
-PMF_dark/
-├── README.md                                    # This file
-├── mat_fact_dark_div.ipynb                     # Main analysis notebook
-├── data/
-│   ├── survey.csv                              # Species presence/absence matrix (sites × species)
-│   ├── env.csv                                 # Environmental predictors (sites × covariates)
-│   └── truth.csv                               # Ground truth data (if available)
-└── output/
-    ├── mat_fact_predicted_probabilities_full.csv           # Full model predictions
-    ├── mat_fact_predicted_probabilities_env_only.csv       # Environment-only predictions
-    └── mat_fact_dark_diversity_proxy.csv                   # Dark diversity estimates
-```
-
 ## Installation
 
 ### Requirements
 
-- Python 3.13 or 3.14
+- Python 3.12, 3.13, or 3.14
 - PyTorch (with CUDA support if using GPU)
 - Pyro (pyro-ppl)
 - Pandas
@@ -80,9 +16,7 @@ PMF_dark/
 - Matplotlib
 
 ### 1. Standard Installation (from PyPI)
-
 If you just want to use the package in your own projects, you can install it directly:
-
 ```bash
 pip install pmf-dark
 ```
@@ -91,11 +25,9 @@ pip install pmf-dark
 > Installing `pmf-dark` automatically installs a default PyPI version of PyTorch (typically a CPU-only build on Windows). If you need CUDA GPU support, follow the CUDA replacement steps below.
 
 ### 2. CUDA GPU Support (Optional)
-
-To run computations on an NVIDIA GPU, you must manually install or replace PyTorch with the correct CUDA-enabled build.
+To run computations on an NVIDIA GPU, you must manually install or replace PyTorch with the correct CUDA-enabled build. 
 
 Visit the [PyTorch Getting Started guide](https://pytorch.org/get-started/locally/) to select the correct command for your CUDA version and OS. For example, to install or switch to PyTorch with CUDA 12.4 support:
-
 ```bash
 # Uninstall standard/CPU torch first to prevent conflicts
 pip uninstall -y torch torchvision torchaudio
@@ -107,11 +39,9 @@ pip install torch --index-url https://download.pytorch.org/whl/cu124
 ---
 
 ### 3. Development & Demo Setup (from Source)
-
 If you cloned this repository to run the demo notebooks (`demo.ipynb`) or want to make changes to the source code:
 
 #### Step A: Setup Virtual Environment
-
 ```bash
 # Clone the repository
 git clone https://github.com/davidyshen/PMF_dark.git
@@ -123,21 +53,17 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
 #### Step B: Install PyTorch (CUDA or CPU)
-
 If you want GPU acceleration, install the CUDA version first (following the **CUDA GPU Support** instructions above). Otherwise, you can skip this step.
 
 #### Step C: Install the Package in Editable Mode
-
 This installs the local package and automatically resolves all remaining dependencies:
 
 If installing via pip:
-
 ```bash
 pip install -e .
 ```
 
 If using Poetry:
-
 ```bash
 poetry install
 ```
@@ -340,11 +266,31 @@ plot_spatial_predictions(
 )
 ```
 
-## Output Files
+---
 
-- **mat_fact_predicted_probabilities_full.csv**: Predicted species occurrence probabilities including all effects
-- **mat_fact_predicted_probabilities_env_only.csv**: Predicted probabilities using only environmental effects
-- **mat_fact_dark_diversity_proxy.csv**: Dark diversity estimates (full - env_only)
+### R Integration
+
+If you prefer to work in R, you can use the R wrapper package **[pmf_dark_r](https://github.com/davidyshen/pmf_dark_r)**. 
+
+This wrapper allows you to run the Bayesian Probabilistic Matrix Factorisation model and estimate dark diversity directly inside your R environment (using `reticulate` under the hood to interface with this Python package). 
+
+For installation and usage instructions in R, check out the [pmf_dark_r repository](https://github.com/davidyshen/pmf_dark_r).
+
+## Repository Structure
+
+```
+PMF_dark/
+├── README.md                                    # This file
+├── mat_fact_dark_div.ipynb                     # Main analysis notebook
+├── data/
+│   ├── survey.csv                              # Species presence/absence matrix (sites × species)
+│   ├── env.csv                                 # Environmental predictors (sites × covariates)
+│   └── truth.csv                               # Ground truth data (if available)
+└── output/
+    ├── mat_fact_predicted_probabilities_full.csv           # Full model predictions
+    ├── mat_fact_predicted_probabilities_env_only.csv       # Environment-only predictions
+    └── mat_fact_dark_diversity_proxy.csv                   # Dark diversity estimates
+```
 
 ## Data Format
 
@@ -374,19 +320,11 @@ site_2,14.8,6.9,520,...,id_2,pristine
 - Columns: Environmental predictors + ID + land-use
 - **Note**: ID and land-use columns are dropped; only abiotic predictors are used
 
-## Interpretation of Results
+## Output Files
 
-### Dark Diversity Proxy Values
-
-- **High values (close to 1)**: Species should be present based on environment but are absent—candidate for restoration
-- **Low values (close to 0)**: Species absence explained by environmental conditions
-- **Negative values**: Model predicts species should be absent (rare, indicates environmental unsuitability)
-
-### Key Metrics
-
-- **AUC (Area Under ROC Curve)**: Overall model discrimination (0.5 = random, 1.0 = perfect)
-- **Brier Score**: Prediction calibration error (lower is better)
-- **F1 Score**: Balance between precision and recall
+- **mat_fact_predicted_probabilities_full.csv**: Predicted species occurrence probabilities including all effects
+- **mat_fact_predicted_probabilities_env_only.csv**: Predicted probabilities using only environmental effects
+- **mat_fact_dark_diversity_proxy.csv**: Dark diversity estimates (full - env_only)
 
 ## Advantages of This Approach
 
@@ -404,9 +342,70 @@ site_2,14.8,6.9,520,...,id_2,pristine
 - Computational cost increases with number of species and sites
 - Requires careful tuning of number of latent factors
 
-## References & Theoretical Background
+---
 
-### Key Concepts
+## Theoretical & Methodology Background
+
+### The Problem: What is Dark Diversity?
+
+Traditional biodiversity assessments only count observed species (alpha diversity). However, many species are absent from sites where they *could* thrive based on environmental conditions. This "**dark diversity**" represents:
+
+- Species lost due to historical or ongoing land-use degradation
+- Species unable to reach suitable sites due to dispersal limitation
+- Species suppressed by biotic interactions
+
+Quantifying dark diversity is crucial for:
+- Conservation planning and restoration potential assessment
+- Understanding true biodiversity patterns
+- Identifying areas with highest restoration value
+
+### Methodology
+
+#### Core Model
+
+The framework decomposes species occurrence probabilities into **three additive components**:
+
+$$\text{logit}(p_{ij}) = \underbrace{\alpha_j}_{\text{Intercept}} + \underbrace{f_j(\mathbf{x}_i)}_{\text{Environmental Effects}} + \underbrace{\mathbf{w}_i^\top \mathbf{z}_j}_{\text{Latent Factors}}$$
+
+Where:
+- **$\alpha_j$**: Species-specific baseline prevalence
+- **$f_j(\mathbf{x}_i)$**: Environmental response function to measured abiotic variables (temperature, pH, elevation, etc.), which can be modelled as linear, Gaussian niche, or non-linear (e.g. Bayesian neural network)
+- **$\mathbf{w}_i^\top \mathbf{z}_j$**: Latent factors capturing unmeasured drivers of absence
+
+#### Key Innovation: Counterfactual Predictions
+
+1. **Full Predictions**: Include all components (environment + latent factors)
+   - Represents observed diversity with all drivers active
+
+2. **Environment-Only Predictions**: Exclude latent factors
+   - Represents potential diversity (setting $\mathbf{w}_i^\top \mathbf{z}_j = 0$)
+
+3. **Dark Diversity Proxy**: Difference between full and environment-only predictions
+   - Quantifies species lost to unmeasured stressors
+
+#### Inference: Stochastic Variational Inference (SVI)
+
+The model is fit using **Pyro-based SVI**, which:
+- Handles high-dimensional ecological matrices efficiently
+- Treats inference as an optimisation problem (ELBO maximisation)
+- Scales to thousands of sites and species
+- Requires minimal computational resources
+
+### Interpretation of Results
+
+#### Dark Diversity Proxy Values
+
+- **High values (close to 1)**: Species should be present based on environment but are absent—candidate for restoration
+- **Low values (close to 0)**: Species absence explained by environmental conditions
+- **Negative values**: Model predicts species should be absent (rare, indicates environmental unsuitability)
+
+#### Key Metrics
+
+- **AUC (Area Under ROC Curve)**: Overall model discrimination (0.5 = random, 1.0 = perfect)
+- **Brier Score**: Prediction calibration error (lower is better)
+- **F1 Score**: Balance between precision and recall
+
+### References & Literature
 
 - **Joint Species Distribution Models (JSDMs)**: Latent variable models for multivariate species data
 - **Matrix Factorisation**: Low-rank decomposition of high-dimensional species matrices
