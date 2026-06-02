@@ -4,10 +4,22 @@ from pyro.infer import SVI, Trace_ELBO, MCMC, NUTS
 from pyro.infer.autoguide import AutoNormal
 from pyro.optim import Adam
 from torch import device
-import torch    
+import torch
 from pyro.infer import Predictive
 
-def fit_svi(model, y, x, num_factors, y_type, lr=0.01, num_iterations=2500, cuda=False, batch_size=None, **kwargs,):
+
+def fit_svi(
+    model,
+    y,
+    x,
+    num_factors,
+    y_type,
+    lr=0.01,
+    num_iterations=2500,
+    cuda=False,
+    batch_size=None,
+    **kwargs,
+):
 
     device = torch.device("cuda" if cuda and torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -59,9 +71,22 @@ def fit_svi(model, y, x, num_factors, y_type, lr=0.01, num_iterations=2500, cuda
         "samples": samples,
     }
 
-def fit_mcmc(model, y, x, num_factors, y_type, num_samples=1000, warmup_steps=500, num_chains=1, batch_size=None):
+
+def fit_mcmc(
+    model,
+    y,
+    x,
+    num_factors,
+    y_type,
+    num_samples=1000,
+    warmup_steps=500,
+    num_chains=1,
+    batch_size=None,
+):
     if batch_size is not None:
-        raise ValueError("MCMC does not support mini-batching. Please use SVI (method='svi') or set batch_size=None.")
+        raise ValueError(
+            "MCMC does not support mini-batching. Please use SVI (method='svi') or set batch_size=None."
+        )
     pyro.clear_param_store()
 
     kernel = NUTS(model)

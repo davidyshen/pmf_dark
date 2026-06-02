@@ -9,10 +9,8 @@ def observation_dist(eta, y_type):
         return dist.Bernoulli(logits=eta)
 
     elif y_type == "count":
-        return dist.Poisson(
-            rate=torch.exp(torch.clamp(eta, -20, 20))
-        )
-    #elif y_type == "count":
+        return dist.Poisson(rate=torch.exp(torch.clamp(eta, -20, 20)))
+    # elif y_type == "count":
     #
     #    mu = torch.exp(torch.clamp(eta, -20, 20))
     #
@@ -29,11 +27,11 @@ def observation_dist(eta, y_type):
     #        logits=torch.log(mu) - torch.log(dispersion),
     #    )
 
-
     else:
         raise ValueError(
             "y_type must be 'presence_absence', 'count', or 'zero_inflated_count'"
         )
+
 
 def linear_model(X, Y, num_factors, y_type="presence_absence", batch_size=None):
     device = X.device
@@ -77,7 +75,11 @@ def linear_model(X, Y, num_factors, y_type="presence_absence", batch_size=None):
             ).to_event(1),
         )
 
-        eta_batch = alpha + torch.matmul(X_batch, beta) + torch.matmul(W_batch, Z.transpose(-1, -2))
+        eta_batch = (
+            alpha
+            + torch.matmul(X_batch, beta)
+            + torch.matmul(W_batch, Z.transpose(-1, -2))
+        )
 
         pyro.sample(
             "obs",
@@ -85,7 +87,10 @@ def linear_model(X, Y, num_factors, y_type="presence_absence", batch_size=None):
             obs=Y_batch,
         )
 
-def gaussian_response_model(X, Y, num_factors, y_type="presence_absence", batch_size=None):
+
+def gaussian_response_model(
+    X, Y, num_factors, y_type="presence_absence", batch_size=None
+):
     device = X.device
 
     n_sites, n_species = Y.shape
@@ -150,7 +155,9 @@ def gaussian_response_model(X, Y, num_factors, y_type="presence_absence", batch_
         )
 
 
-def bnn_model(X, Y, num_factors=1, y_type="presence_absence", hidden_size=10, batch_size=None):
+def bnn_model(
+    X, Y, num_factors=1, y_type="presence_absence", hidden_size=10, batch_size=None
+):
     device = X.device
 
     n_sites, n_species = Y.shape
