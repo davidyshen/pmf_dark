@@ -76,7 +76,7 @@ def prepare_data(x, y, cuda=False):
 
 
 def compute_predictions(
-    samples, x, model_type="linear", include_latent=True, y_type="presence_absence"
+    samples, x, model_type="gaussian", include_latent=True, y_type="presence_absence"
 ):
 
     if model_type == "linear":
