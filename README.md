@@ -103,7 +103,6 @@ If not using CUDA, simply install the CPU version:
 pip install torch
 ```
 
-
 #### 3. Install remaining dependencies
 If installing via pip:
 ```bash
@@ -118,33 +117,188 @@ poetry install
 
 ## Usage
 
-### Running the Full Analysis
+`pmf_dark` provides a flexible Python API to fit models, generate predictions, and estimate dark diversity.
 
-1. Prepare your data in `data/` directory:
-   - `survey.csv`: Species presence/absence (rows = sites, columns = species, values = 0/1)
-   - `env.csv`: Environmental predictors (rows = sites, columns = variables)
-
-2. Open and run the Jupyter notebook:
-   ```bash
-   jupyter notebook mat_fact_dark_div.ipynb
-   ```
-
-3. The notebook will:
-   - Load and standardise data
-   - Fit the matrix factorisation model (2,500 iterations)
-   - Generate predictions and save CSV outputs
-
-### Customisation
-
-Key parameters in the notebook:
+### Quick Start: Basic API Usage
 
 ```python
-# Model parameters
-num_factors = 5                # Number of latent factors (adjust based on data complexity)
-num_iterations = 2500          # Model iterations
+import pandas as pd
+from pmf_dark import compute_dark_diversity
 
-# Learning rate
-Adam({"lr": 0.01})            # Adjust if convergence is slow
+# 1. Load data
+y = pd.read_csv("data/survey.csv", index_col=0)
+x = pd.read_csv("data/env.csv", index_col=0)
+
+# Drop non-species/non-environmental metadata
+coords = y[["x", "y"]]
+y = y.drop(columns=["x", "y", "ID"])
+x = x.drop(columns=["ID"])
+
+# 2. Run Dark Diversity Estimation using a Gaussian Niche Model with SVI
+predictions = compute_dark_diversity(
+    y=y,
+    x=x,
+    model_type="gaussian",   # Ecological response model
+    method="svi",            # Stochastic Variational Inference
+    num_factors=2,           # Latent factors
+    num_iterations=2500,     # SVI parameters
+    categorical_cols=["landuse"] # Explicitly treat landuse as categorical
+)
+```
+
+---
+
+### `compute_dark_diversity()` Function Arguments
+
+```python
+compute_dark_diversity(
+    y,                      # Species presence-absence/count matrix (n_sites, n_species)
+    x,                      # Environmental predictor matrix (n_sites, n_env)
+    model_type="gaussian",  # "linear" | "gaussian" | "bnn"
+    num_factors=1,          # Number of latent factors for residual covariance
+    method="svi",           # "svi" | "mcmc"
+    cuda=False,             # GPU computation (SVI only)
+    include_latent=True,    # Include latent factors in predictions
+    return_means=True,      # Return means or full posterior samples
+    batch_size=None,        # Mini-batch size for SVI training (default: None)
+    pred_batch_size=None,   # Site-chunk size for prediction output (default: None)
+    categorical_cols=None,  # Explicit list of columns to treat as categorical variables
+    **kwargs,               # Extra model/method specific arguments
+)
+```
+
+#### Parameter Details
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `y` | array-like | — | Species matrix (presence/absence or counts) with shape `(n_sites, n_species)`. |
+| `x` | array-like | — | Environmental predictor matrix with shape `(n_sites, n_env)`. |
+| `model_type` | str | `"gaussian"` | Ecological response model: `"linear"`, `"gaussian"` (quadratic niche), or `"bnn"` (Bayesian Neural Network). |
+| `num_factors` | int | `1` | Number of latent factors used to model residual species covariance. |
+| `method` | str | `"svi"` | Inference method: `"svi"` (Stochastic Variational Inference) or `"mcmc"` (Hamiltonian NUTS). |
+| `cuda` | bool | `False` | Use GPU computation (SVI only, requires CUDA-enabled PyTorch build). |
+| `include_latent` | bool | `True` | Include latent factors when computing predictions (Full predictions). Set `False` for counterfactual (environment-only) predictions. |
+| `return_means` | bool | `True` | Return posterior means (`True`) or full posterior samples (`False`). |
+| `batch_size` | int | `None` | Mini-batch size for SVI training (None fits all data in one step). |
+| `pred_batch_size` | int | `None` | Site-chunk size for prediction output (None uses full-batch prediction). |
+| `categorical_cols` | list | `None` | Explicit list of column names in `x` to treat as categorical variables (e.g. label-encoded integers). |
+
+#### Method-Specific Arguments (`**kwargs`)
+
+* **SVI (`method="svi"`)**:
+  - `num_iterations=2500`: Number of training steps.
+  - `lr=0.01`: Adam optimizer learning rate.
+  - `num_samples=1000`: Number of posterior samples to draw for predictions.
+* **MCMC (`method="mcmc"`)**:
+  - `num_samples=1000`: Number of posterior samples.
+  - `warmup_steps=500`: Warmup (burn-in) steps for NUTS.
+
+---
+
+### Ecological Response Models
+
+#### 1. Linear Model (`model_type="linear"`)
+Models species responses linearly (on the logit scale). Good baseline model.
+```python
+p_linear = compute_dark_diversity(
+    y, x,
+    model_type="linear",
+    method="svi",
+    num_iterations=2000
+)
+```
+
+#### 2. Gaussian Niche Model (`model_type="gaussian"`)
+Models symmetric, bell-shaped (quadratic niche) responses relative to predictors. Suitable for continuous gradients (e.g. temperature, elevation).
+```python
+p_gaussian = compute_dark_diversity(
+    y, x,
+    model_type="gaussian",
+    method="svi"
+)
+```
+
+#### 3. Bayesian Neural Network Model (`model_type="bnn"`)
+Models highly complex, non-linear interactions using a single hidden-layer BNN. Best for complex datasets and mixed continuous/one-hot inputs.
+```python
+p_bnn = compute_dark_diversity(
+    y, x,
+    model_type="bnn",
+    method="svi",
+    hidden_size=10  # size of BNN hidden layer
+)
+```
+
+---
+
+### Handling Categorical & Label-Encoded Data
+
+Columns with dtypes of `category`, `object`, `bool`, or `string` are **automatically auto-detected** and one-hot encoded, while continuous variables are standardized.
+
+If your categorical data is **label-encoded as integers** (e.g. `landuse` represented by `0, 1, 2`), specify them explicitly using `categorical_cols` to prevent the model from treating them as continuous:
+```python
+predictions = compute_dark_diversity(
+    y, x,
+    model_type="linear",
+    categorical_cols=["landuse"]
+)
+```
+
+---
+
+### Counterfactual Prediction Flow
+To calculate dark diversity, run predictions both with and without latent factors:
+```python
+# 1. Full prediction (environment + latent factors)
+p_full = compute_dark_diversity(
+    y, x, model_type="gaussian", include_latent=True
+)
+
+# 2. Counterfactual prediction (environment only)
+p_env = compute_dark_diversity(
+    y, x, model_type="gaussian", include_latent=False
+)
+
+# 3. Dark Diversity Proxy (Species pool index)
+dark_diversity = p_full - p_env
+```
+
+---
+
+### Working with Count Data
+If your species matrix `y` contains counts (integers $\ge 0$) instead of binary presence/absence, the package automatically infers the data type and fits a **Poisson** likelihood instead of Bernoulli:
+```python
+# y contains count values (e.g., abundance)
+abundance_predictions = compute_dark_diversity(
+    y_abundance, x,
+    model_type="gaussian"
+)
+```
+
+---
+
+### Extra Evaluation & Plotting Utilities
+The package includes utility modules under `extras/` to evaluate model performance and plot predictions:
+
+```python
+from extras.evaluation import compute_overall_error_metrics
+from extras.plots import plot_environmental_response, plot_spatial_predictions
+
+# 1. Evaluate performance (returns AUC, Brier Score, F1, etc.)
+metrics = compute_overall_error_metrics(
+    true_probabilities=true_values,
+    predicted_probabilities=p_gaussian,
+    observed_y=y
+)
+print("Model Performance:", metrics)
+
+# 2. Plot spatial probability distribution maps
+plot_spatial_predictions(
+    probabilities=p_gaussian,
+    coords=coords,
+    species_name="species_1",
+    y=y
+)
 ```
 
 ## Output Files

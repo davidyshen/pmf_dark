@@ -126,12 +126,79 @@ class TestDarkDiv(unittest.TestCase):
             pred_batch_size=5
         )
         
-        # Check shape matches
-        self.assertEqual(pred_full.shape, (self.n_sites, self.n_species))
-        self.assertEqual(pred_chunk.shape, (self.n_sites, self.n_species))
+        # Compare outcomes
+        pd.testing.assert_frame_equal(pred_full, pred_chunk)
+        self.assertEqual(pred_full.shape, self.y_binary.shape)
         
-        # Check results are identical
-        np.testing.assert_array_almost_equal(pred_full.values, pred_chunk.values, decimal=5)
+    def test_infer_y_type_categorical(self):
+        # Dataframe with categorical (non-numeric) input
+        y_cat = pd.DataFrame(
+            [["A", "B"], ["B", "A"]],
+            index=["site_0", "site_1"],
+            columns=["spec_0", "spec_1"]
+        )
+        # Should raise ValueError as categorical is not supported yet
+        with self.assertRaises(ValueError):
+            infer_y_type(y_cat)
+
+    def test_prepare_data_categorical_auto(self):
+        # Create a df with categorical types: category, object, bool
+        x_cat = self.x.copy()
+        x_cat['cat_col'] = ['A', 'B'] * 10
+        x_cat['bool_col'] = [True, False] * 10
+        
+        data = prepare_data(x_cat, self.y_binary, cuda=False)
+        x_np = data["x"].cpu().numpy()
+        
+        # Original 2 float columns + 'cat_col' (A, B -> 2 dummy cols) + 'bool_col' (False, True -> 2 dummy cols)
+        # So we should have 2 (continuous) + 2 (dummies for cat_col) + 2 (dummies for bool_col) = 6 columns
+        self.assertEqual(data["x"].shape, (self.n_sites, 6))
+        self.assertEqual(data["x"].dtype, torch.float32)
+        
+        # Continuous columns should be standardized, dummy columns should NOT be standardized (should remain 0.0 or 1.0)
+        # Dummy columns are located at the end: columns 2, 3, 4, 5
+        dummy_vals = x_np[:, 2:]
+        self.assertTrue(np.all(np.isin(dummy_vals, [0.0, 1.0])))
+
+    def test_prepare_data_categorical_explicit(self):
+        # Create a df with a label encoded column (integer)
+        x_cat = self.x.copy()
+        x_cat['landuse'] = [0, 1, 2, 1] * 5  # integer, but we specify it as categorical
+        
+        # Run preparation specifying landuse as categorical
+        data = prepare_data(x_cat, self.y_binary, categorical_cols=['landuse'], cuda=False)
+        x_np = data["x"].cpu().numpy()
+        
+        # 2 float columns + 3 dummy columns for landuse (0, 1, 2) = 5 columns
+        self.assertEqual(data["x"].shape, (self.n_sites, 5))
+        
+        # Verify dummy columns (columns 2, 3, 4) contain only 0 and 1
+        dummy_vals = x_np[:, 2:]
+        self.assertTrue(np.all(np.isin(dummy_vals, [0.0, 1.0])))
+
+    def test_prepare_data_categorical_missing(self):
+        # Specifying a column not in x should raise ValueError
+        with self.assertRaises(ValueError):
+            prepare_data(self.x, self.y_binary, categorical_cols=['non_existent'], cuda=False)
+
+    def test_compute_dark_diversity_with_categorical(self):
+        # Smoke test to fit models with categorical environmental variables
+        x_cat = self.x.copy()
+        x_cat['landuse'] = [0, 1, 2, 1] * 5
+        
+        pred = compute_dark_diversity(
+            y=self.y_binary,
+            x=x_cat,
+            model_type="linear",
+            num_factors=1,
+            method="svi",
+            num_iterations=20,
+            return_means=True,
+            categorical_cols=['landuse']
+        )
+        
+        # Shape should match sites x species
+        self.assertEqual(pred.shape, (self.n_sites, self.n_species))
 
 if __name__ == "__main__":
     unittest.main()

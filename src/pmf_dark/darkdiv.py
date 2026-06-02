@@ -23,35 +23,84 @@ def infer_y_type(y):
 
         values = np.asarray(y)
 
-    # Check missing values
-    if np.isnan(values).any():
-        raise ValueError("y contains missing values.")
+    # Check missing values and data type validity
+    try:
+        if pd.isna(values).any():
+            raise ValueError("y contains missing values.")
 
-    # Binary data
-    if np.isin(values, [0, 1]).all():
-        return "presence_absence"
+        # Binary data
+        if np.isin(values, [0, 1]).all():
+            return "presence_absence"
 
-    # Count data
-    elif (values >= 0).all():
-        return "count"
+        # Count data
+        elif (values >= 0).all():
+            return "count"
 
-    else:
-        raise ValueError("y must contain either binary or count data.")
+        else:
+            raise ValueError("y must contain either binary or count data.")
+    except TypeError:
+        raise ValueError("y must contain numeric (binary or count) data.")
 
 
-def prepare_data(x, y, cuda=False):
+def prepare_data(x, y, categorical_cols=None, cuda=False):
 
     # Keep names
-    x_columns = x.columns
     y_columns = y.columns
     site_index = y.index
 
-    # Standardize x
-    x = (x - x.mean()) / x.std()
+    if categorical_cols is None:
+        categorical_cols = []
+    else:
+        categorical_cols = list(categorical_cols)
+
+    # Validate that all specified categorical_cols exist in x
+    missing_cols = [col for col in categorical_cols if col not in x.columns]
+    if missing_cols:
+        raise ValueError(f"The following specified categorical columns are not in x: {missing_cols}")
+
+    # Auto-detect categorical columns based on dtypes (category, object, bool, string)
+    auto_cat_cols = []
+    for col in x.columns:
+        if col not in categorical_cols:
+            if isinstance(x[col].dtype, pd.CategoricalDtype) or x[col].dtype in ['object', 'bool', 'string']:
+                auto_cat_cols.append(col)
+
+    all_cat_cols = categorical_cols + auto_cat_cols
+
+    # Process x
+    if len(all_cat_cols) > 0:
+        x_temp = x.copy()
+        # Convert all to category type so pd.get_dummies knows they are categorical
+        for col in all_cat_cols:
+            x_temp[col] = x_temp[col].astype('category')
+
+        # Get continuous columns
+        cont_cols = [col for col in x.columns if col not in all_cat_cols]
+
+        # Standardise continuous columns
+        if len(cont_cols) > 0:
+            x_cont = x_temp[cont_cols]
+            # Handle standard deviation of 0
+            x_std = x_cont.std().replace(0, 1.0)
+            x_cont_std = (x_cont - x_cont.mean()) / x_std
+        else:
+            x_cont_std = pd.DataFrame(index=site_index)
+
+        # One-hot encode categorical columns
+        x_dummies = pd.get_dummies(x_temp[all_cat_cols], prefix=all_cat_cols, prefix_sep="_", drop_first=False, dtype=float)
+
+        # Concatenate standardized continuous columns and dummy columns
+        x_processed = pd.concat([x_cont_std, x_dummies], axis=1)
+    else:
+        # Standardise all columns (previous behaviour)
+        x_std = x.std().replace(0, 1.0)
+        x_processed = (x - x.mean()) / x_std
+
+    x_columns = x_processed.columns
 
     # Convert to tensors
     x_tensor = torch.tensor(
-        x.to_numpy(),
+        x_processed.to_numpy(),
         dtype=torch.float32,
     )
 
@@ -136,6 +185,7 @@ def compute_dark_diversity(
     return_means=True,
     batch_size=None,
     pred_batch_size=None,
+    categorical_cols=None,
     **kwargs,
 ):
 
@@ -159,7 +209,7 @@ def compute_dark_diversity(
     y_type = infer_y_type(y)
     print(y_type)
 
-    data = prepare_data(x, y, cuda=cuda)
+    data = prepare_data(x, y, categorical_cols=categorical_cols, cuda=cuda)
 
     x = data["x"]
     y = data["y"]
