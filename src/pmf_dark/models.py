@@ -88,9 +88,7 @@ def linear_model(X, Y, num_factors, y_type="presence_absence", batch_size=None):
         )
 
 
-def gaussian_response_model(
-    X, Y, num_factors, y_type="presence_absence", batch_size=None
-):
+def gaussian(X, Y, num_factors, y_type="presence_absence", batch_size=None):
     device = X.device
 
     n_sites, n_species = Y.shape

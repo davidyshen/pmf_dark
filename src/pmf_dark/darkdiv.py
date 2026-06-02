@@ -84,7 +84,7 @@ def compute_predictions(
         beta = samples["beta"].squeeze(1)
         eta = alpha[:, None, :] + torch.einsum("ij,sjk->sik", x, beta)
 
-    elif model_type == "gaussian_response_model":
+    elif model_type == "gaussian":
         alpha = samples["alpha"].squeeze(1)
         mu = samples["mu"].squeeze(1)
         gamma = samples["gamma"].squeeze(1)
@@ -169,10 +169,10 @@ def compute_dark_diversity(
         from .models import linear_model
 
         model = linear_model
-    elif model_name == "gaussian_response_model":
-        from .models import gaussian_response_model
+    elif model_name == "gaussian":
+        from .models import gaussian
 
-        model = gaussian_response_model
+        model = gaussian
     elif model_name == "bnn":
         from .models import bnn_model
 
