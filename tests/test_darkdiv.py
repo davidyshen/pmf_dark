@@ -88,7 +88,7 @@ class TestDarkDiv(unittest.TestCase):
             compute_dark_diversity(
                 y=self.y_binary,
                 x=self.x,
-                model_name="linear",
+                model_type="linear",
                 method="mcmc",
                 batch_size=10
             )
@@ -102,7 +102,7 @@ class TestDarkDiv(unittest.TestCase):
         pred_full = compute_dark_diversity(
             y=self.y_binary,
             x=self.x,
-            model_name="linear",
+            model_type="linear",
             num_factors=1,
             method="svi",
             num_iterations=20,
@@ -118,7 +118,7 @@ class TestDarkDiv(unittest.TestCase):
         pred_chunk = compute_dark_diversity(
             y=self.y_binary,
             x=self.x,
-            model_name="linear",
+            model_type="linear",
             num_factors=1,
             method="svi",
             num_iterations=20,
