@@ -1,1 +1,16 @@
 output/
+
+# Build artifacts (poetry build outputs)
+dist/
+build/
+*.egg-info/
+
+# Python cache & virtualenv
+__pycache__/
+*.pyc
+.venv/
+
+# IDE/Jupyter caches
+.ipynb_checkpoints/
+.vscode/
+.idea/
