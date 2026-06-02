@@ -13,6 +13,7 @@ Traditional biodiversity assessments only count observed species (alpha diversit
 - Species suppressed by biotic interactions
 
 Quantifying dark diversity is crucial for:
+
 - Conservation planning and restoration potential assessment
 - Understanding true biodiversity patterns
 - Identifying areas with highest restoration value
@@ -26,6 +27,7 @@ The framework decomposes species occurrence probabilities into **three additive 
 $$\text{logit}(p_{ij}) = \underbrace{\alpha_j}_{\text{Intercept}} + \underbrace{f_j(\mathbf{x}_i)}_{\text{Environmental Effects}} + \underbrace{\mathbf{w}_i^\top \mathbf{z}_j}_{\text{Latent Factors}}$$
 
 Where:
+
 - **$\alpha_j$**: Species-specific baseline prevalence
 - **$f_j(\mathbf{x}_i)$**: Environmental response function to measured abiotic variables (temperature, pH, elevation, etc.), which can be modelled as linear, Gaussian niche, or non-linear (e.g. Bayesian neural network)
 - **$\mathbf{w}_i^\top \mathbf{z}_j$**: Latent factors capturing unmeasured drivers of absence
@@ -34,16 +36,17 @@ Where:
 
 1. **Full Predictions**: Include all components (environment + latent factors)
    - Represents observed diversity with all drivers active
-   
+
 2. **Environment-Only Predictions**: Exclude latent factors
    - Represents potential diversity (setting $\mathbf{w}_i^\top \mathbf{z}_j = 0$)
-   
+
 3. **Dark Diversity Proxy**: Difference between full and environment-only predictions
    - Quantifies species lost to unmeasured stressors
 
 ### Inference: Stochastic Variational Inference (SVI)
 
 The model is fit using **Pyro-based SVI**, which:
+
 - Handles high-dimensional ecological matrices efficiently
 - Treats inference as an optimisation problem (ELBO maximisation)
 - Scales to thousands of sites and species
@@ -74,17 +77,41 @@ PMF_dark/
 - Pyro (pyro-ppl)
 - Pandas
 - NumPy
-- scikit-learn
-- scipy
+- Matplotlib
 
-### Setup
+### 1. Standard Installation (from PyPI)
+
+If you just want to use the package in your own projects, you can install it directly:
+
+```bash
+pip install pmf-dark
+```
 
 > [!NOTE]
-> Installing this package (or its dependency `pyro-ppl`) automatically installs the default version of PyTorch from PyPI (which defaults to a CPU-only build on many systems or might not match your system's CUDA version). If you want to run computations on a GPU, you must manually install or replace PyTorch with the correct CUDA-enabled build.
+> Installing `pmf-dark` automatically installs a default PyPI version of PyTorch (typically a CPU-only build on Windows). If you need CUDA GPU support, follow the CUDA replacement steps below.
 
-To ensure PyTorch is configured correctly, it is highly recommended to install your desired PyTorch build **first** (before installing the remaining dependencies). If you have already run the setup and need to switch to CUDA, you must uninstall the existing `torch` package or force-reinstall it.
+### 2. CUDA GPU Support (Optional)
 
-#### 1. Setup Virtual Environment
+To run computations on an NVIDIA GPU, you must manually install or replace PyTorch with the correct CUDA-enabled build.
+
+Visit the [PyTorch Getting Started guide](https://pytorch.org/get-started/locally/) to select the correct command for your CUDA version and OS. For example, to install or switch to PyTorch with CUDA 12.4 support:
+
+```bash
+# Uninstall standard/CPU torch first to prevent conflicts
+pip uninstall -y torch torchvision torchaudio
+
+# Install CUDA-enabled torch
+pip install torch --index-url https://download.pytorch.org/whl/cu124
+```
+
+---
+
+### 3. Development & Demo Setup (from Source)
+
+If you cloned this repository to run the demo notebooks (`demo.ipynb`) or want to make changes to the source code:
+
+#### Step A: Setup Virtual Environment
+
 ```bash
 # Clone the repository
 git clone https://github.com/davidyshen/PMF_dark.git
@@ -95,32 +122,23 @@ python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
-#### 2. Install/Replace PyTorch with CUDA
-Visit the [PyTorch Getting Started guide](https://pytorch.org/get-started/locally/) to select the correct command for your CUDA version and OS. 
+#### Step B: Install PyTorch (CUDA or CPU)
 
-For example, to install or switch to PyTorch with CUDA 12.4 support:
-```bash
-# Uninstall standard/CPU torch first to prevent conflicts
-pip uninstall -y torch torchvision torchaudio
+If you want GPU acceleration, install the CUDA version first (following the **CUDA GPU Support** instructions above). Otherwise, you can skip this step.
 
-# Install CUDA-enabled torch
-pip install torch --index-url https://download.pytorch.org/whl/cu124
-```
+#### Step C: Install the Package in Editable Mode
 
-If not using CUDA/GPU acceleration, you can let it auto-install or install the standard version directly:
-```bash
-pip install torch
-```
+This installs the local package and automatically resolves all remaining dependencies:
 
-#### 3. Install remaining dependencies
 If installing via pip:
+
 ```bash
-pip install pyro-ppl pandas numpy scikit-learn scipy jupyter
+pip install -e .
 ```
 
 If using Poetry:
+
 ```bash
-# This will install the package and its remaining dependencies into your environment
 poetry install
 ```
 
@@ -194,11 +212,11 @@ compute_dark_diversity(
 
 #### Method-Specific Arguments (`**kwargs`)
 
-* **SVI (`method="svi"`)**:
+- **SVI (`method="svi"`)**:
   - `num_iterations=2500`: Number of training steps.
   - `lr=0.01`: Adam optimizer learning rate.
   - `num_samples=1000`: Number of posterior samples to draw for predictions.
-* **MCMC (`method="mcmc"`)**:
+- **MCMC (`method="mcmc"`)**:
   - `num_samples=1000`: Number of posterior samples.
   - `warmup_steps=500`: Warmup (burn-in) steps for NUTS.
 
@@ -207,7 +225,9 @@ compute_dark_diversity(
 ### Ecological Response Models
 
 #### 1. Linear Model (`model_type="linear"`)
-Models species responses linearly (on the logit scale). Good baseline model.
+
+Models species responses linearly (on the logit scale). Simplest model.
+
 ```python
 p_linear = compute_dark_diversity(
     y, x,
@@ -218,7 +238,9 @@ p_linear = compute_dark_diversity(
 ```
 
 #### 2. Gaussian Niche Model (`model_type="gaussian"`)
-Models symmetric, bell-shaped (quadratic niche) responses relative to predictors. Suitable for continuous gradients (e.g. temperature, elevation).
+
+Models symmetric, bell-shaped (quadratic niche) responses relative to predictors. The default model.
+
 ```python
 p_gaussian = compute_dark_diversity(
     y, x,
@@ -228,7 +250,9 @@ p_gaussian = compute_dark_diversity(
 ```
 
 #### 3. Bayesian Neural Network Model (`model_type="bnn"`)
-Models highly complex, non-linear interactions using a single hidden-layer BNN. Best for complex datasets and mixed continuous/one-hot inputs.
+
+Models highly complex, non-linear interactions using a single hidden-layer BNN. Less interpretable, but suitable for complex datasets and mixed continuous/one-hot inputs.
+
 ```python
 p_bnn = compute_dark_diversity(
     y, x,
@@ -245,6 +269,7 @@ p_bnn = compute_dark_diversity(
 Columns with dtypes of `category`, `object`, `bool`, or `string` are **automatically auto-detected** and one-hot encoded, while continuous variables are standardized.
 
 If your categorical data is **label-encoded as integers** (e.g. `landuse` represented by `0, 1, 2`), specify them explicitly using `categorical_cols` to prevent the model from treating them as continuous:
+
 ```python
 predictions = compute_dark_diversity(
     y, x,
@@ -256,7 +281,9 @@ predictions = compute_dark_diversity(
 ---
 
 ### Counterfactual Prediction Flow
+
 To calculate dark diversity, run predictions both with and without latent factors:
+
 ```python
 # 1. Full prediction (environment + latent factors)
 p_full = compute_dark_diversity(
@@ -275,7 +302,9 @@ dark_diversity = p_full - p_env
 ---
 
 ### Working with Count Data
+
 If your species matrix `y` contains counts (integers $\ge 0$) instead of binary presence/absence, the package automatically infers the data type and fits a **Poisson** likelihood instead of Bernoulli:
+
 ```python
 # y contains count values (e.g., abundance)
 abundance_predictions = compute_dark_diversity(
@@ -287,6 +316,7 @@ abundance_predictions = compute_dark_diversity(
 ---
 
 ### Extra Evaluation & Plotting Utilities
+
 The package includes utility modules under `extras/` to evaluate model performance and plot predictions:
 
 ```python
@@ -319,23 +349,27 @@ plot_spatial_predictions(
 ## Data Format
 
 ### survey.csv
+
 ```
 site_id,species_1,species_2,...,species_n,ID,x,y
 site_1,0,1,0,...,1,id_1,100.5,200.3
 site_2,1,0,1,...,0,id_2,101.2,201.5
 ...
 ```
+
 - Rows: Sites/locations
 - Columns: Species (0/1 presence/absence) + ID + spatial coordinates
 - **Note**: ID and spatial coordinates are automatically extracted/dropped
 
 ### env.csv
+
 ```
 site_id,temp,pH,elevation,...,ID,landuse
 site_1,15.2,7.1,500,...,id_1,degraded
 site_2,14.8,6.9,520,...,id_2,pristine
 ...
 ```
+
 - Rows: Sites matching survey.csv
 - Columns: Environmental predictors + ID + land-use
 - **Note**: ID and land-use columns are dropped; only abiotic predictors are used
@@ -343,11 +377,13 @@ site_2,14.8,6.9,520,...,id_2,pristine
 ## Interpretation of Results
 
 ### Dark Diversity Proxy Values
+
 - **High values (close to 1)**: Species should be present based on environment but are absent—candidate for restoration
 - **Low values (close to 0)**: Species absence explained by environmental conditions
 - **Negative values**: Model predicts species should be absent (rare, indicates environmental unsuitability)
 
 ### Key Metrics
+
 - **AUC (Area Under ROC Curve)**: Overall model discrimination (0.5 = random, 1.0 = perfect)
 - **Brier Score**: Prediction calibration error (lower is better)
 - **F1 Score**: Balance between precision and recall
@@ -371,6 +407,7 @@ site_2,14.8,6.9,520,...,id_2,pristine
 ## References & Theoretical Background
 
 ### Key Concepts
+
 - **Joint Species Distribution Models (JSDMs)**: Latent variable models for multivariate species data
 - **Matrix Factorisation**: Low-rank decomposition of high-dimensional species matrices
 - **Stochastic Variational Inference**: Scalable Bayesian inference for probabilistic models
