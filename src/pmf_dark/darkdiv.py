@@ -36,9 +36,7 @@ def infer_y_type(y):
         return "count"
 
     else:
-        raise ValueError(
-            "y must contain either binary or count data."
-        )
+        raise ValueError("y must contain either binary or count data.")
 
 
 def prepare_data(x, y, cuda=False):
@@ -63,9 +61,7 @@ def prepare_data(x, y, cuda=False):
     )
 
     # Device
-    device = torch.device(
-        "cuda" if cuda and torch.cuda.is_available() else "cpu"
-    )
+    device = torch.device("cuda" if cuda and torch.cuda.is_available() else "cpu")
 
     x_tensor = x_tensor.to(device)
     y_tensor = y_tensor.to(device)
@@ -79,8 +75,10 @@ def prepare_data(x, y, cuda=False):
     }
 
 
-def compute_predictions(samples, x, model_type="linear", include_latent=True, y_type = "presence_absence"):
-    
+def compute_predictions(
+    samples, x, model_type="linear", include_latent=True, y_type="presence_absence"
+):
+
     if model_type == "linear":
         alpha = samples["alpha"].squeeze(1)
         beta = samples["beta"].squeeze(1)
@@ -105,9 +103,7 @@ def compute_predictions(samples, x, model_type="linear", include_latent=True, y_
         w2 = samples["w2"].squeeze(1)
         b2 = samples["b2"].squeeze(1)
 
-        hidden = torch.tanh(
-            torch.einsum("ij,sjh->sih", x, w1) + b1[:, None, :]
-        )
+        hidden = torch.tanh(torch.einsum("ij,sjh->sih", x, w1) + b1[:, None, :])
 
         eta = torch.einsum("sih,shk->sik", hidden, w2) + b2[:, None, :]
 
@@ -128,10 +124,29 @@ def compute_predictions(samples, x, model_type="linear", include_latent=True, y_
     else:
         raise ValueError("y_type must be 'presence_absence' or 'count'")
 
-def compute_dark_diversity(y, x, 
-                           model_name = "linear", num_factors = 1, method = "svi", cuda = False, 
-                           include_latent = True, return_means = True, **kwargs ):
-    
+
+def compute_dark_diversity(
+    y,
+    x,
+    model_name="linear",
+    num_factors=1,
+    method="svi",
+    cuda=False,
+    include_latent=True,
+    return_means=True,
+    batch_size=None,
+    pred_batch_size=None,
+    **kwargs,
+):
+
+    if cuda and not torch.cuda.is_available():
+        import warnings
+
+        warnings.warn(
+            "CUDA was requested (cuda=True), but PyTorch cannot detect a CUDA-enabled GPU. "
+            "Please check your NVIDIA drivers and reinstall PyTorch with CUDA support. "
+            "Falling back to CPU."
+        )
 
     # For bnn only svi is supported
     if method == "mcmc" and model_name == "bnn":
@@ -139,7 +154,7 @@ def compute_dark_diversity(y, x,
             "MCMC is currently not supported for the Bayesian neural network model. "
             "Please use method='svi' instead."
         )
-    
+
     # Check if y is presence/absence or count data
     y_type = infer_y_type(y)
     print(y_type)
@@ -152,41 +167,98 @@ def compute_dark_diversity(y, x,
     # Load the model
     if model_name == "linear":
         from .models import linear_model
+
         model = linear_model
     elif model_name == "gaussian_response_model":
         from .models import gaussian_response_model
+
         model = gaussian_response_model
     elif model_name == "bnn":
         from .models import bnn_model
+
         model = bnn_model
-    
+
     # Inference
     if method == "svi":
         from .inference import fit_svi
-        fit = fit_svi(model, y, x, num_factors, y_type=y_type, cuda=cuda,  **kwargs,)
+
+        fit = fit_svi(
+            model,
+            y,
+            x,
+            num_factors,
+            y_type=y_type,
+            cuda=cuda,
+            batch_size=batch_size,
+            **kwargs,
+        )
     elif method == "mcmc":
         from .inference import fit_mcmc
-        fit = fit_mcmc(model, y, x, num_factors, y_type=y_type, **kwargs,)
-    
-    # Compute probabilities
-    pred = compute_predictions(
-        fit["samples"],
-        x,
-        model_type=model_name,
-        include_latent=include_latent,
-        y_type = y_type,
-    )
-    if return_means:
-        pred = pred.mean(dim=0)
-        pred = pred.detach().cpu().numpy()
 
-        pred = pd.DataFrame(
-            pred,
-            index=data["site_index"],
-            columns=data["y_columns"],
+        fit = fit_mcmc(
+            model, y, x, num_factors, y_type=y_type, batch_size=batch_size, **kwargs
         )
 
+    # Compute probabilities
+    if pred_batch_size is not None:
+        n_sites = x.shape[0]
+        pred_chunks = []
+        for i in range(0, n_sites, pred_batch_size):
+            x_chunk = x[i : i + pred_batch_size]
+            samples_chunk = fit["samples"].copy()
+            if "W" in fit["samples"]:
+                w_tensor = fit["samples"]["W"]
+                if w_tensor.dim() == 4:
+                    samples_chunk["W"] = w_tensor[:, :, i : i + pred_batch_size, :]
+                else:
+                    samples_chunk["W"] = w_tensor[:, i : i + pred_batch_size, :]
+
+            pred_chunk = compute_predictions(
+                samples_chunk,
+                x_chunk,
+                model_type=model_name,
+                include_latent=include_latent,
+                y_type=y_type,
+            )
+
+            if return_means:
+                pred_chunk_processed = pred_chunk.mean(dim=0).detach().cpu().numpy()
+            else:
+                pred_chunk_processed = pred_chunk.detach().cpu().numpy()
+
+            pred_chunks.append(pred_chunk_processed)
+
+        if return_means:
+            pred_np = np.concatenate(pred_chunks, axis=0)
+            pred = pd.DataFrame(
+                pred_np,
+                index=data["site_index"],
+                columns=data["y_columns"],
+            )
+        else:
+            # If returning full samples, shape of each chunk is (num_samples, batch_size, n_species)
+            # We concatenate along the site dimension (axis 1)
+            pred = np.concatenate(pred_chunks, axis=1)
+
     else:
-        pred = pred.detach().cpu().numpy()
+        pred = compute_predictions(
+            fit["samples"],
+            x,
+            model_type=model_name,
+            include_latent=include_latent,
+            y_type=y_type,
+        )
+        if return_means:
+            pred = pred.mean(dim=0)
+            pred = pred.detach().cpu().numpy()
+
+            pred = pd.DataFrame(
+                pred,
+                index=data["site_index"],
+                columns=data["y_columns"],
+            )
+
+        else:
+            pred = pred.detach().cpu().numpy()
 
     return pred

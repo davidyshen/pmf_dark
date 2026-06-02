@@ -9,10 +9,8 @@ def observation_dist(eta, y_type):
         return dist.Bernoulli(logits=eta)
 
     elif y_type == "count":
-        return dist.Poisson(
-            rate=torch.exp(torch.clamp(eta, -20, 20))
-        )
-    #elif y_type == "count":
+        return dist.Poisson(rate=torch.exp(torch.clamp(eta, -20, 20)))
+    # elif y_type == "count":
     #
     #    mu = torch.exp(torch.clamp(eta, -20, 20))
     #
@@ -29,13 +27,13 @@ def observation_dist(eta, y_type):
     #        logits=torch.log(mu) - torch.log(dispersion),
     #    )
 
-
     else:
         raise ValueError(
             "y_type must be 'presence_absence', 'count', or 'zero_inflated_count'"
         )
 
-def linear_model(X, Y, num_factors, y_type="presence_absence"):
+
+def linear_model(X, Y, num_factors, y_type="presence_absence", batch_size=None):
     device = X.device
 
     n_sites, n_species = Y.shape
@@ -57,14 +55,6 @@ def linear_model(X, Y, num_factors, y_type="presence_absence"):
         ).to_event(2),
     )
 
-    W = pyro.sample(
-        "W",
-        dist.Normal(
-            torch.zeros(n_sites, num_factors, device=device),
-            torch.ones(n_sites, num_factors, device=device),
-        ).to_event(2),
-    )
-
     Z = pyro.sample(
         "Z",
         dist.Normal(
@@ -73,16 +63,34 @@ def linear_model(X, Y, num_factors, y_type="presence_absence"):
         ).to_event(2),
     )
 
-    eta = alpha + torch.matmul(X, beta) + torch.matmul(W, Z.T)
+    with pyro.plate("sites", n_sites, subsample_size=batch_size) as ind:
+        X_batch = X[ind]
+        Y_batch = Y[ind]
 
-    with pyro.plate("sites", n_sites):
-        pyro.sample(
-            "obs",
-            observation_dist(eta, y_type).to_event(1),
-            obs=Y,
+        W_batch = pyro.sample(
+            "W",
+            dist.Normal(
+                torch.zeros(num_factors, device=device),
+                torch.ones(num_factors, device=device),
+            ).to_event(1),
         )
 
-def gaussian_response_model(X, Y, num_factors, y_type="presence_absence"):
+        eta_batch = (
+            alpha
+            + torch.matmul(X_batch, beta)
+            + torch.matmul(W_batch, Z.transpose(-1, -2))
+        )
+
+        pyro.sample(
+            "obs",
+            observation_dist(eta_batch, y_type).to_event(1),
+            obs=Y_batch,
+        )
+
+
+def gaussian_response_model(
+    X, Y, num_factors, y_type="presence_absence", batch_size=None
+):
     device = X.device
 
     n_sites, n_species = Y.shape
@@ -114,18 +122,6 @@ def gaussian_response_model(X, Y, num_factors, y_type="presence_absence"):
         ).to_event(2),
     )
 
-    # quadratic environmental response
-    diff = X[:, :, None] - mu[None, :, :]
-    env_effect = -torch.sum(gamma[None, :, :] * diff**2, dim=1)
-
-    W = pyro.sample(
-        "W",
-        dist.Normal(
-            torch.zeros(n_sites, num_factors, device=device),
-            torch.ones(n_sites, num_factors, device=device),
-        ).to_event(2),
-    )
-
     Z = pyro.sample(
         "Z",
         dist.Normal(
@@ -134,17 +130,34 @@ def gaussian_response_model(X, Y, num_factors, y_type="presence_absence"):
         ).to_event(2),
     )
 
-    eta = alpha + env_effect + torch.matmul(W, Z.T)
+    with pyro.plate("sites", n_sites, subsample_size=batch_size) as ind:
+        X_batch = X[ind]
+        Y_batch = Y[ind]
 
-    with pyro.plate("sites", n_sites):
+        W_batch = pyro.sample(
+            "W",
+            dist.Normal(
+                torch.zeros(num_factors, device=device),
+                torch.ones(num_factors, device=device),
+            ).to_event(1),
+        )
+
+        # quadratic environmental response
+        diff = X_batch[..., None] - mu[..., None, :, :]
+        env_effect = -torch.sum(gamma[..., None, :, :] * diff**2, dim=-2)
+
+        eta_batch = alpha + env_effect + torch.matmul(W_batch, Z.transpose(-1, -2))
+
         pyro.sample(
             "obs",
-            observation_dist(eta, y_type).to_event(1),
-            obs=Y,
+            observation_dist(eta_batch, y_type).to_event(1),
+            obs=Y_batch,
         )
 
 
-def bnn_model(X, Y, num_factors=1, y_type="presence_absence", hidden_size=10,):
+def bnn_model(
+    X, Y, num_factors=1, y_type="presence_absence", hidden_size=10, batch_size=None
+):
     device = X.device
 
     n_sites, n_species = Y.shape
@@ -182,19 +195,8 @@ def bnn_model(X, Y, num_factors=1, y_type="presence_absence", hidden_size=10,):
         ).to_event(1),
     )
 
-    hidden = torch.tanh(X @ w1 + b1)
-
-    eta = hidden @ w2 + b2
-
+    Z = None
     if num_factors > 0:
-        W = pyro.sample(
-            "W",
-            dist.Normal(
-                torch.zeros(n_sites, num_factors, device=device),
-                torch.ones(n_sites, num_factors, device=device),
-            ).to_event(2),
-        )
-
         Z = pyro.sample(
             "Z",
             dist.Normal(
@@ -203,11 +205,25 @@ def bnn_model(X, Y, num_factors=1, y_type="presence_absence", hidden_size=10,):
             ).to_event(2),
         )
 
-        eta = eta + W @ Z.T
+    with pyro.plate("sites", n_sites, subsample_size=batch_size) as ind:
+        X_batch = X[ind]
+        Y_batch = Y[ind]
 
-    with pyro.plate("sites", n_sites):
+        hidden = torch.tanh(X_batch @ w1 + b1)
+        eta_batch = hidden @ w2 + b2
+
+        if num_factors > 0:
+            W_batch = pyro.sample(
+                "W",
+                dist.Normal(
+                    torch.zeros(num_factors, device=device),
+                    torch.ones(num_factors, device=device),
+                ).to_event(1),
+            )
+            eta_batch = eta_batch + W_batch @ Z.transpose(-1, -2)
+
         pyro.sample(
             "obs",
-            observation_dist(eta, y_type).to_event(1),
-            obs=Y,
+            observation_dist(eta_batch, y_type).to_event(1),
+            obs=Y_batch,
         )
