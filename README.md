@@ -79,7 +79,10 @@ PMF_dark/
 
 ### Setup
 
-To ensure PyTorch is installed with the correct CUDA version for your system, it is recommended to install PyTorch manually **first** before installing the package or its other dependencies.
+> [!NOTE]
+> Installing this package (or its dependency `pyro-ppl`) automatically installs the default version of PyTorch from PyPI (which defaults to a CPU-only build on many systems or might not match your system's CUDA version). If you want to run computations on a GPU, you must manually install or replace PyTorch with the correct CUDA-enabled build.
+
+To ensure PyTorch is configured correctly, it is highly recommended to install your desired PyTorch build **first** (before installing the remaining dependencies). If you have already run the setup and need to switch to CUDA, you must uninstall the existing `torch` package or force-reinstall it.
 
 #### 1. Setup Virtual Environment
 ```bash
@@ -92,13 +95,19 @@ python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
-#### 2. Install PyTorch with CUDA
-Visit the [PyTorch Getting Started guide](https://pytorch.org/get-started/locally/) to select the correct command for your CUDA version and OS. For example, to install PyTorch with CUDA 12.4 support on Windows/Linux:
+#### 2. Install/Replace PyTorch with CUDA
+Visit the [PyTorch Getting Started guide](https://pytorch.org/get-started/locally/) to select the correct command for your CUDA version and OS. 
+
+For example, to install or switch to PyTorch with CUDA 12.4 support:
 ```bash
+# Uninstall standard/CPU torch first to prevent conflicts
+pip uninstall -y torch torchvision torchaudio
+
+# Install CUDA-enabled torch
 pip install torch --index-url https://download.pytorch.org/whl/cu124
 ```
 
-If not using CUDA, simply install the CPU version:
+If not using CUDA/GPU acceleration, you can let it auto-install or install the standard version directly:
 ```bash
 pip install torch
 ```
