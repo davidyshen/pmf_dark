@@ -126,8 +126,8 @@ class TestDarkDiv(unittest.TestCase):
             pred_batch_size=5
         )
         
-        # Compare outcomes
-        pd.testing.assert_frame_equal(pred_full, pred_chunk)
+        # Compare outcomes (allow small floating-point differences)
+        pd.testing.assert_frame_equal(pred_full, pred_chunk, check_exact=False, rtol=1e-5, atol=1e-6)
         self.assertEqual(pred_full.shape, self.y_binary.shape)
         
     def test_infer_y_type_categorical(self):
