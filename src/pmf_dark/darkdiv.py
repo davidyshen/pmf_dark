@@ -177,7 +177,7 @@ def compute_predictions(
 def compute_dark_diversity(
     y,
     x,
-    model_type="linear",
+    model_type="gaussian",
     num_factors=1,
     method="svi",
     cuda=False,
