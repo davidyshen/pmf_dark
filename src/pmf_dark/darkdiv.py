@@ -206,8 +206,9 @@ def compute_dark_diversity(
         )
 
     # Check if y is presence/absence or count data
+    # Check if y is presence/absence or count data
     y_type = infer_y_type(y)
-    print(y_type)
+    # print(y_type)
 
     data = prepare_data(x, y, categorical_cols=categorical_cols, cuda=cuda)
 
