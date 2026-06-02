@@ -8,7 +8,7 @@ This repository implements a **PMF-dark** using Bayesian Probabilistic Matrix Fa
 
 ### Requirements
 
-- Python 3.13 or 3.14
+- Python 3.12, 3.13, or 3.14
 - PyTorch (with CUDA support if using GPU)
 - Pyro (pyro-ppl)
 - Pandas
