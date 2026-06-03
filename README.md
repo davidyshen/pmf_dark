@@ -1,6 +1,6 @@
 # PMF-dark: Using matrix factorisation for dark diversity estimation
 
-[GitHub](https://github.com/davidyshen/pmf_dark/)
+[GitHub](https://github.com/davidyshen/pmf_dark/) repository
 
 ## Overview
 
@@ -18,7 +18,9 @@ This repository implements **PMF-dark** using Bayesian Probabilistic Matrix Fact
 - Matplotlib
 
 ### 1. Standard Installation (from PyPI)
+
 If you just want to use the package in your own projects, you can install it directly:
+
 ```bash
 pip install pmf-dark
 ```
@@ -27,23 +29,30 @@ pip install pmf-dark
 > Installing `pmf-dark` automatically installs a default PyPI version of PyTorch (typically a CPU-only build on Windows). If you need CUDA GPU support, follow the CUDA replacement steps below.
 
 ### 2. CUDA GPU Support (Optional)
-To run computations on an NVIDIA GPU, you must manually install or replace PyTorch with the correct CUDA-enabled build. 
+
+To run computations on an NVIDIA GPU, you must manually install or replace PyTorch with the correct CUDA-enabled build.
 
 Visit the [PyTorch Getting Started guide](https://pytorch.org/get-started/locally/) to select the correct command for your CUDA version and OS. For example, to install or switch to PyTorch with CUDA 12.4 support:
+
 ```bash
 # Uninstall standard/CPU torch first to prevent conflicts
 pip uninstall -y torch torchvision torchaudio
 
 # Install CUDA-enabled torch
 pip install torch --index-url https://download.pytorch.org/whl/cu124
+
+# Or force reinstall to switch from CPU to CUDA version
+pip install torch --index-url https://download.pytorch.org/whl/cu124 --force
 ```
 
 ---
 
 ### 3. Development & Demo Setup (from Source)
+
 If you cloned this repository to run the demo notebooks (`demo.ipynb`) or want to make changes to the source code:
 
 #### Step A: Setup Virtual Environment
+
 ```bash
 # Clone the repository
 git clone https://github.com/davidyshen/PMF_dark.git
@@ -55,17 +64,21 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
 #### Step B: Install PyTorch (CUDA or CPU)
+
 If you want GPU acceleration, install the CUDA version first (following the **CUDA GPU Support** instructions above). Otherwise, you can skip this step.
 
 #### Step C: Install the Package in Editable Mode
+
 This installs the local package and automatically resolves all remaining dependencies:
 
 If installing via pip:
+
 ```bash
 pip install -e .
 ```
 
 If using Poetry:
+
 ```bash
 poetry install
 ```
@@ -272,61 +285,96 @@ plot_spatial_predictions(
 
 ### R Integration
 
-If you prefer to work in R, you can use the R wrapper package **[pmf_dark_r](https://github.com/davidyshen/pmf_dark_r)**. 
+If you prefer to work in R, you can use the R wrapper package **[pmf_dark_r](https://github.com/davidyshen/pmf_dark_r)**.
 
-This wrapper allows you to run the Bayesian Probabilistic Matrix Factorisation model and estimate dark diversity directly inside your R environment (using `reticulate` under the hood to interface with this Python package). 
+This wrapper allows you to run the Bayesian Probabilistic Matrix Factorisation model and estimate dark diversity directly inside your R environment (using `reticulate` under the hood to interface with this Python package).
 
 For installation and usage instructions in R, check out the [pmf_dark_r repository](https://github.com/davidyshen/pmf_dark_r).
 
 ## Repository Structure
 
-```
-PMF_dark/
-├── README.md                                    # This file
-├── mat_fact_dark_div.ipynb                     # Main analysis notebook
-├── data/
-│   ├── survey.csv                              # Species presence/absence matrix (sites × species)
-│   ├── env.csv                                 # Environmental predictors (sites × covariates)
-│   └── truth.csv                               # Ground truth data (if available)
-└── output/
-    ├── mat_fact_predicted_probabilities_full.csv           # Full model predictions
-    ├── mat_fact_predicted_probabilities_env_only.csv       # Environment-only predictions
-    └── mat_fact_dark_diversity_proxy.csv                   # Dark diversity estimates
-```
+- `README.md` - This file
+- `demo.ipynb` - Demonstration notebook
+- `pyproject.toml` - Poetry/packaging configuration
+- **data/**
+  - `data/survey.csv` - Species presence/absence matrix (sites × species)
+  - `data/env.csv` - Environmental predictors (sites × covariates)
+  - `data/truth.csv` - Ground truth data (if available)
+  - `data/pool_darkdiv.csv` - Simulated dark diversity pool
+- **src/pmf_dark/** - Core package source code
+  - `src/pmf_dark/__init__.py` - Package initialization and main imports
+  - `src/pmf_dark/darkdiv.py` - Main dark diversity estimation entrypoint
+  - `src/pmf_dark/inference.py` - SVI and MCMC inference execution
+  - `src/pmf_dark/models.py` - Probabilistic response models (Linear, Gaussian, BNN)
+- **extras/**
+  - `extras/evaluation.py` - Performance evaluation and metrics
+  - `extras/plots.py` - Plotting and visualization helper functions
+- **tests/**
+  - `tests/test_darkdiv.py` - Unit and integration tests
 
-## Data Format
+## Data Structure
 
-### survey.csv
+The `compute_dark_diversity` function expects input pandas dataframes with specific column structures. Some sample data files are included in this repository for testing and demonstration (see demo.ipynb for usage).
 
-```
-site_id,species_1,species_2,...,species_n,ID,x,y
-site_1,0,1,0,...,1,id_1,100.5,200.3
-site_2,1,0,1,...,0,id_2,101.2,201.5
+### `survey.csv`
+
+Species presence-absence matrix (sites × species), containing coordinates and ID columns.
+
+```csv
+"",ID,x,y,sp1,sp2,...,sp100
+"1",1,3.5,3.5,0,0,...,0
+"2",2,10.5,3.5,0,0,...,0
 ...
 ```
 
-- Rows: Sites/locations
-- Columns: Species (0/1 presence/absence) + ID + spatial coordinates
-- **Note**: ID and spatial coordinates are automatically extracted/dropped
+- **Row Index (`""`)**: Unnamed first column containing site labels/indices (loaded with `index_col=0`).
+- **`ID`**: Site identifier column.
+- **`x`, `y`**: Spatial coordinates of the sites.
+- **`sp1` to `sp100`**: Binary species presence/absence markers (`1` for present, `0` for absent).
 
-### env.csv
+### `env.csv`
 
-```
-site_id,temp,pH,elevation,...,ID,landuse
-site_1,15.2,7.1,500,...,id_1,degraded
-site_2,14.8,6.9,520,...,id_2,pristine
+Environmental predictor matrix (sites × covariates) containing abiotic variables and land-use data.
+
+```csv
+"",ID,temperature,pH,elevation,landuse
+"1",1,19.6969,5.9807,30.303,"1"
+"2",2,19.6969,5.9583,101.01,"1"
 ...
 ```
 
-- Rows: Sites matching survey.csv
-- Columns: Environmental predictors + ID + land-use
-- **Note**: ID and land-use columns are dropped; only abiotic predictors are used
+- **Row Index (`""`)**: Unnamed first column matching the index labels in `survey.csv`.
+- **`ID`**: Site identifier column.
+- **`temperature`, `pH`, `elevation`**: Continuous environmental covariates.
+- **`landuse`**: Categorical covariate (integer or string values, e.g., `"0"`, `"1"`).
 
-## Output Files
+### `truth.csv`
 
-- **mat_fact_predicted_probabilities_full.csv**: Predicted species occurrence probabilities including all effects
-- **mat_fact_predicted_probabilities_env_only.csv**: Predicted probabilities using only environmental effects
-- **mat_fact_dark_diversity_proxy.csv**: Dark diversity estimates (full - env_only)
+Simulated truth data to evaluate model performance, containing the true probabilities of species occurrence.
+
+```csv
+"",sp1,sp2,...,sp100
+"1",0.05703,1.23e-05,...,0.00160
+"2",0.07283,0.00012,...,0.00885
+...
+```
+
+- **Row Index (`""`)**: Unnamed first column matching the site indices.
+- **`sp1` to `sp100`**: Continuous probabilities of species occurrence (floats between 0 and 1).
+
+### `pool_darkdiv.csv`
+
+Dark diversity calculated using the pairwise co-occurrence method using the `DarkDiv` R package, included for comparison with our PMF-dark estimates.
+
+```csv
+"",sp1,sp2,...,sp100
+"1",0.99999,0.35203,...,0.25145
+"2",0.99999,0.50974,...,0.38711
+...
+```
+
+- **Row Index (`""`)**: Unnamed first column matching the site indices.
+- **`sp1` to `sp100`**: Continuous simulated occurrence probabilities for species.
 
 ## Advantages of This Approach
 
@@ -338,7 +386,6 @@ site_2,14.8,6.9,520,...,id_2,pristine
 
 ## Limitations
 
-- Assumes species responses are log-linear (logit link)
 - Requires sufficient environmental variation to estimate effects reliably
 - May overestimate dark diversity if detection is imperfect
 - Computational cost increases with number of species and sites
@@ -357,6 +404,7 @@ Traditional biodiversity assessments only count observed species (alpha diversit
 - Species suppressed by biotic interactions
 
 Quantifying dark diversity is crucial for:
+
 - Conservation planning and restoration potential assessment
 - Understanding true biodiversity patterns
 - Identifying areas with highest restoration value
@@ -370,6 +418,7 @@ The framework decomposes species occurrence probabilities into **three additive 
 $$\text{logit}(p_{ij}) = \underbrace{\alpha_j}_{\text{Intercept}} + \underbrace{f_j(\mathbf{x}_i)}_{\text{Environmental Effects}} + \underbrace{\mathbf{w}_i^\top \mathbf{z}_j}_{\text{Latent Factors}}$$
 
 Where:
+
 - **$\alpha_j$**: Species-specific baseline prevalence
 - **$f_j(\mathbf{x}_i)$**: Environmental response function to measured abiotic variables (temperature, pH, elevation, etc.), which can be modelled as linear, Gaussian niche, or non-linear (e.g. Bayesian neural network)
 - **$\mathbf{w}_i^\top \mathbf{z}_j$**: Latent factors capturing unmeasured drivers of absence
@@ -388,28 +437,13 @@ Where:
 #### Inference: Stochastic Variational Inference (SVI)
 
 The model is fit using **Pyro-based SVI**, which:
+
 - Handles high-dimensional ecological matrices efficiently
 - Treats inference as an optimisation problem (ELBO maximisation)
 - Scales to thousands of sites and species
 - Requires minimal computational resources
 
-### Interpretation of Results
+### Acknowledgements
 
-#### Dark Diversity Proxy Values
-
-- **High values (close to 1)**: Species should be present based on environment but are absent—candidate for restoration
-- **Low values (close to 0)**: Species absence explained by environmental conditions
-- **Negative values**: Model predicts species should be absent (rare, indicates environmental unsuitability)
-
-#### Key Metrics
-
-- **AUC (Area Under ROC Curve)**: Overall model discrimination (0.5 = random, 1.0 = perfect)
-- **Brier Score**: Prediction calibration error (lower is better)
-- **F1 Score**: Balance between precision and recall
-
-### References & Literature
-
-- **Joint Species Distribution Models (JSDMs)**: Latent variable models for multivariate species data
-- **Matrix Factorisation**: Low-rank decomposition of high-dimensional species matrices
-- **Stochastic Variational Inference**: Scalable Bayesian inference for probabilistic models
-- **Counterfactual Predictions**: Causal inference approach to estimate potential outcomes
+This package is an output of the [SustainScapes](https://bio.au.dk/en/research/research-centres/sustainscapes) project at Aarhus University, funded by the Novo Nordisk Foundation (grant NNF20OC0059595).
+This project was lead by David Shen, with contributions from Emilie S. Lissner, Signe Normand, all at Aarhus University, and Tom Johnson at the University of Sheffield.
