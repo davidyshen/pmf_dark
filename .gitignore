@@ -10,6 +10,9 @@ __pycache__/
 *.pyc
 .venv/
 
+# Test artifacts
+tests/__pycache__/
+
 # IDE/Jupyter caches
 .ipynb_checkpoints/
 .vscode/
