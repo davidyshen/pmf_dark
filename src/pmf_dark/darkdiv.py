@@ -357,7 +357,6 @@ class PMFDark:
     def _predict(
         self,
         include_latent=True,
-        num_samples=None,
         pred_batch_size=None,
         return_means=True,
     ):
@@ -367,8 +366,6 @@ class PMFDark:
         Args:
             include_latent (bool): If True, includes latent factors in predictions.
                 If False, generates counterfactual (environment-only) predictions.
-            num_samples (int, optional): Slice/limit the number of posterior samples
-                returned (only applicable when return_means=False).
             pred_batch_size (int, optional): Site-chunk size for chunked predictions.
             return_means (bool): If True, returns posterior means. If False, returns
                 full posterior samples.
@@ -391,10 +388,7 @@ class PMFDark:
         site_index = self.site_index
         y_columns = self.y_columns
 
-        # Handle slicing num_samples
         samples = fit["samples"]
-        if num_samples is not None:
-            samples = {k: v[:num_samples] for k, v in samples.items()}
 
         # Compute probabilities
         if pred_batch_size is not None:
@@ -460,14 +454,13 @@ class PMFDark:
 
         return pred
 
-    def distribution(self, num_samples=None, pred_batch_size=None, return_means=True):
+    def distribution(self, pred_batch_size=None, return_means=True):
         """
         Generate species occurrence predictions including latent factors.
 
         Represents the current distribution of the species with all drivers active.
 
         Args:
-            num_samples (int, optional): Slice/limit the number of posterior samples.
             pred_batch_size (int, optional): Site-chunk size for prediction output.
             return_means (bool): If True, returns a pandas.DataFrame of posterior means.
                 If False, returns a NumPy array of raw posterior samples.
@@ -477,12 +470,11 @@ class PMFDark:
         """
         return self._predict(
             include_latent=True,
-            num_samples=num_samples,
             pred_batch_size=pred_batch_size,
             return_means=return_means,
         )
 
-    def pool(self, num_samples=None, pred_batch_size=None, return_means=True):
+    def pool(self, pred_batch_size=None, return_means=True):
         """
         Generate counterfactual environment-only predictions (excluding latent factors).
 
@@ -490,7 +482,6 @@ class PMFDark:
         limitation drivers/stressors were not there).
 
         Args:
-            num_samples (int, optional): Slice/limit the number of posterior samples.
             pred_batch_size (int, optional): Site-chunk size for prediction output.
             return_means (bool): If True, returns a pandas.DataFrame of posterior means.
                 If False, returns a NumPy array of raw posterior samples.
@@ -500,12 +491,11 @@ class PMFDark:
         """
         return self._predict(
             include_latent=False,
-            num_samples=num_samples,
             pred_batch_size=pred_batch_size,
             return_means=return_means,
         )
 
-    def dark(self, num_samples=None, pred_batch_size=None, return_means=True):
+    def dark(self, pred_batch_size=None, return_means=True):
         """
         Generate predictions of species dark diversity.
 
@@ -514,7 +504,6 @@ class PMFDark:
         is observed in the original training data, the dark diversity is set to NA (NaN).
 
         Args:
-            num_samples (int, optional): Slice/limit the number of posterior samples.
             pred_batch_size (int, optional): Site-chunk size for prediction output.
             return_means (bool): If True, returns a pandas.DataFrame of posterior means.
                 If False, returns a NumPy array of raw posterior samples.
@@ -524,7 +513,6 @@ class PMFDark:
                 masked to NaN.
         """
         pool_pred = self.pool(
-            num_samples=num_samples,
             pred_batch_size=pred_batch_size,
             return_means=return_means,
         )
@@ -582,9 +570,6 @@ def compute_dark_diversity(
     Returns:
         pandas.DataFrame or numpy.ndarray: Probability/count predictions.
     """
-    # Extract num_samples from kwargs if present
-    num_samples = kwargs.get("num_samples", None)
-
     model = PMFDark(
         model_type=model_type,
         num_factors=num_factors,
@@ -602,13 +587,11 @@ def compute_dark_diversity(
 
     if include_latent:
         return model.distribution(
-            num_samples=num_samples,
             pred_batch_size=pred_batch_size,
             return_means=return_means,
         )
     else:
         return model.pool(
-            num_samples=num_samples,
             pred_batch_size=pred_batch_size,
             return_means=return_means,
         )

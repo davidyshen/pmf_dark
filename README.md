@@ -162,12 +162,11 @@ model.fit(
 Generates species occurrence probabilities:
 
 ```python
-p_dist = model.distribution(num_samples=None, pred_batch_size=None, return_means=True)
-p_pool = model.pool(num_samples=None, pred_batch_size=None, return_means=True)
-p_dark = model.dark(num_samples=None, pred_batch_size=None, return_means=True)
+p_dist = model.distribution(pred_batch_size=None, return_means=True)
+p_pool = model.pool(pred_batch_size=None, return_means=True)
+p_dark = model.dark(pred_batch_size=None, return_means=True)
 ```
 
-*   **`num_samples`** *(int, optional)*: Limits/slices the returned posterior samples to this size (only when `return_means=False`). If `None`, returns all available fitted samples.
 *   **`pred_batch_size`** *(int, optional)*: Chunk size to process sites during prediction (useful to manage memory consumption).
 *   **`return_means`** *(bool, default `True`)*: Returns a `pandas.DataFrame` of posterior means if `True`, or a NumPy `ndarray` of raw posterior samples with shape `(num_samples, n_sites, n_species)` if `False`.
 

@@ -271,10 +271,6 @@ class TestDarkDiv(unittest.TestCase):
                     else:
                         self.assertEqual(dark_np[s, i, j], pool_np[s, i, j])
 
-        # Test num_samples slice at prediction time
-        sliced_dist_np = model.distribution(num_samples=10, return_means=False)
-        self.assertEqual(sliced_dist_np.shape[0], 10)
-
         # Test num_samples specified in fit
         model_small_samples = PMFDark(model_type="linear", num_factors=1, method="svi")
         model_small_samples.fit(
