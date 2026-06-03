@@ -1,8 +1,10 @@
 # PMF-dark: Using matrix factorisation for dark diversity estimation
 
+[GitHub](https://github.com/davidyshen/pmf_dark/)
+
 ## Overview
 
-This repository implements a **PMF-dark** using Bayesian Probabilistic Matrix Factorisation to estimate **dark diversity** - the set of species absent from a site despite having suitable environmental conditions. The method uses **counterfactual predictions** to reconstruct the potential species pool by separating environmental effects from unmeasured drivers of absence (e.g., land-use degradation, dispersal limitation, biotic interactions).
+This repository implements **PMF-dark** using Bayesian Probabilistic Matrix Factorisation to estimate **dark diversity** - the set of species absent from a site despite having suitable environmental conditions. The method uses **counterfactual predictions** to reconstruct the potential species pool by separating environmental effects from unmeasured drivers of absence (e.g., land-use degradation, dispersal limitation, biotic interactions).
 
 ## Installation
 
