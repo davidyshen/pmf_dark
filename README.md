@@ -87,11 +87,13 @@ poetry install
 
 `pmf_dark` provides a flexible Python API to fit models, generate predictions, and estimate dark diversity.
 
-### Quick Start: Basic API Usage
+### Quick Start: Basic API Usage (Recommended)
+
+`pmf_dark` provides a clean object-oriented interface (`PMFDark` model class) to fit models and easily retrieve different predictions (current distribution, potential species pool, and dark diversity) without redundant model refitting.
 
 ```python
 import pandas as pd
-from pmf_dark import compute_dark_diversity
+from pmf_dark import PMFDark
 
 # 1. Load data
 y = pd.read_csv("data/survey.csv", index_col=0)
@@ -102,17 +104,72 @@ coords = y[["x", "y"]]
 y = y.drop(columns=["x", "y", "ID"])
 x = x.drop(columns=["ID"])
 
-# 2. Run Dark Diversity Estimation using a Gaussian Niche Model with SVI
-predictions = compute_dark_diversity(
+# 2. Initialize the PMFDark model
+model = PMFDark(
+    model_type="gaussian",   # Ecological response model: "linear" | "gaussian" | "bnn"
+    method="svi",            # Inference method: "svi" | "mcmc"
+    num_factors=2,           # Number of latent factors
+)
+
+# 3. Fit the model once
+model.fit(
     y=y,
     x=x,
-    model_type="gaussian",   # Ecological response model
-    method="svi",            # Stochastic Variational Inference
-    num_factors=2,           # Latent factors
-    num_iterations=2500,     # SVI parameters
+    num_iterations=2500,     # SVI parameter
     categorical_cols=["landuse"] # Explicitly treat landuse as categorical
 )
+
+# 4. Generate predictions from the fitted model
+p_dist = model.distribution()  # Current species distribution (with latent factors)
+p_pool = model.pool()          # Potential species pool (counterfactual / env only)
+p_dark = model.dark()          # Dark diversity (pool prediction where species is not observed, NaN otherwise)
 ```
+
+For backward compatibility, a functional API `compute_dark_diversity` is also provided.
+
+### `PMFDark` Class API (Recommended)
+
+#### 1. Constructor: `PMFDark()`
+
+Configures the core model architecture and inference settings:
+
+```python
+model = PMFDark(
+    model_type="gaussian",  # Response model: "linear" | "gaussian" | "bnn"
+    num_factors=1,          # Number of latent factors for residual covariance
+    method="svi",           # Inference method: "svi" | "mcmc"
+    cuda=False,             # GPU computation (SVI only)
+    **kwargs                # Extra response model specific arguments
+)
+```
+
+#### 2. Fitting: `model.fit()`
+
+Trains model parameters on the provided dataset:
+
+```python
+model.fit(
+    y,                      # Species presence-absence/count matrix (n_sites, n_species)
+    x,                      # Environmental predictor matrix (n_sites, n_env)
+    categorical_cols=None,  # Explicit list of columns to treat as categorical
+    batch_size=None,        # Mini-batch size (SVI only)
+    **kwargs                # Hyperparameters for SVI (num_iterations, lr) or MCMC (num_chains)
+)
+```
+
+#### 3. Prediction: `model.distribution()`, `model.pool()`, and `model.dark()`
+
+Generates species occurrence probabilities:
+
+```python
+p_dist = model.distribution(num_samples=None, pred_batch_size=None, return_means=True)
+p_pool = model.pool(num_samples=None, pred_batch_size=None, return_means=True)
+p_dark = model.dark(num_samples=None, pred_batch_size=None, return_means=True)
+```
+
+*   **`num_samples`** *(int, optional)*: Limits/slices the returned posterior samples to this size (only when `return_means=False`). If `None`, returns all available fitted samples.
+*   **`pred_batch_size`** *(int, optional)*: Chunk size to process sites during prediction (useful to manage memory consumption).
+*   **`return_means`** *(bool, default `True`)*: Returns a `pandas.DataFrame` of posterior means if `True`, or a NumPy `ndarray` of raw posterior samples with shape `(num_samples, n_sites, n_species)` if `False`.
 
 ---
 
@@ -223,21 +280,36 @@ predictions = compute_dark_diversity(
 
 ### Counterfactual Prediction Flow
 
-To calculate dark diversity, run predictions both with and without latent factors:
+To calculate dark diversity efficiently, we recommend using the object-oriented `PMFDark` model class. This allows you to fit the model once and retrieve all three outputs:
+
+```python
+from pmf_dark import PMFDark
+
+model = PMFDark(model_type="gaussian", num_factors=2)
+model.fit(y, x)
+
+# 1. Full prediction (environment + latent factors)
+# Represents the current distribution of the species with all drivers active
+p_dist = model.distribution()
+
+# 2. Counterfactual prediction (environment only)
+# Represents the potential species pool (suitable habitat without unmeasured limitation drivers)
+p_pool = model.pool()
+
+# 3. Dark Diversity
+# Represents the potential species pool value where a species is NOT observed (i.e. where y_obs == 0).
+# Where a species is observed (y_obs > 0), the value is set to NA (NaN).
+p_dark = model.dark()
+```
+
+For backward compatibility, you can also use `compute_dark_diversity` directly, although getting multiple outputs this way requires fitting the model multiple times:
 
 ```python
 # 1. Full prediction (environment + latent factors)
-p_full = compute_dark_diversity(
-    y, x, model_type="gaussian", include_latent=True
-)
+p_full = compute_dark_diversity(y, x, include_latent=True)
 
 # 2. Counterfactual prediction (environment only)
-p_env = compute_dark_diversity(
-    y, x, model_type="gaussian", include_latent=False
-)
-
-# 3. Dark Diversity Proxy (Species pool index)
-dark_diversity = p_full - p_env
+p_env = compute_dark_diversity(y, x, include_latent=False)
 ```
 
 ---

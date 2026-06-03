@@ -1,5 +1,5 @@
 import torch
-from .darkdiv import compute_dark_diversity
+from .darkdiv import compute_dark_diversity, PMFDark
 
 # Print CUDA availability on import
 if torch.cuda.is_available():
@@ -7,4 +7,4 @@ if torch.cuda.is_available():
 else:
     print("pmf-dark: CUDA is not available. Using CPU.")
 
-__all__ = ["compute_dark_diversity"]
+__all__ = ["compute_dark_diversity", "PMFDark"]

@@ -16,6 +16,7 @@ def fit_svi(
     y_type,
     lr=0.01,
     num_iterations=2500,
+    num_samples=1000,
     cuda=False,
     batch_size=None,
     **kwargs,
@@ -59,7 +60,7 @@ def fit_svi(
     predictive = Predictive(
         model,
         guide=guide,
-        num_samples=1000,
+        num_samples=num_samples,
     )
 
     samples = predictive(x, y, num_factors, y_type, batch_size=None, **kwargs)
