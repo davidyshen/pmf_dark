@@ -279,6 +279,28 @@ class TestDarkDiv(unittest.TestCase):
         dist_small_np = model_small_samples.distribution(return_means=False)
         self.assertEqual(dist_small_np.shape[0], 15)
 
+    def test_float_arguments_casting(self):
+        # Pass float inputs for num_factors, num_iterations, num_samples, hidden_size to test casting logic
+        # (similar to what R/reticulate sends by default)
+        model = PMFDark(
+            model_type="bnn",
+            num_factors=1.0,
+            method="svi",
+            hidden_size=10.0,
+        )
+        model.fit(
+            y=self.y_binary,
+            x=self.x,
+            num_iterations=2.0,
+            num_samples=5.0,
+            batch_size=10.0,
+        )
+        self.assertTrue(model.is_fitted)
+
+        # Test with prediction batch size as float
+        pred = model.distribution(pred_batch_size=5.0, return_means=True)
+        self.assertEqual(pred.shape, self.y_binary.shape)
+
     def test_demo_datasets(self):
         from pmf_dark import env, survey
 

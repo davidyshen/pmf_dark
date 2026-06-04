@@ -238,9 +238,15 @@ class PMFDark:
             **kwargs: Extra model specific configurations (e.g., hidden_size=10 for BNN).
         """
         self.model_type = model_type
-        self.num_factors = num_factors
+        self.num_factors = int(num_factors)
         self.method = method
         self.cuda = cuda
+
+        # Cast integer configurations from R/reticulate (where they might be floats)
+        for key in ["hidden_size", "num_iterations", "num_samples", "warmup_steps", "num_chains"]:
+            if key in kwargs and kwargs[key] is not None:
+                kwargs[key] = int(kwargs[key])
+
         self.init_kwargs = kwargs
 
         self.is_fitted = False
@@ -276,6 +282,13 @@ class PMFDark:
         Raises:
             ValueError: If the combination of method and model_type is invalid.
         """
+        if batch_size is not None:
+            batch_size = int(batch_size)
+
+        for key in ["hidden_size", "num_iterations", "num_samples", "warmup_steps", "num_chains"]:
+            if key in kwargs and kwargs[key] is not None:
+                kwargs[key] = int(kwargs[key])
+
         if self.cuda and not torch.cuda.is_available():
             import warnings
 
@@ -376,6 +389,9 @@ class PMFDark:
         Raises:
             RuntimeError: If called before fitting the model.
         """
+        if pred_batch_size is not None:
+            pred_batch_size = int(pred_batch_size)
+
         if not self.is_fitted:
             raise RuntimeError(
                 "Model must be fitted before computing predictions. Call .fit() first."
@@ -570,6 +586,16 @@ def compute_dark_diversity(
     Returns:
         pandas.DataFrame or numpy.ndarray: Probability/count predictions.
     """
+    num_factors = int(num_factors)
+    if batch_size is not None:
+        batch_size = int(batch_size)
+    if pred_batch_size is not None:
+        pred_batch_size = int(pred_batch_size)
+
+    for key in ["hidden_size", "num_iterations", "num_samples", "warmup_steps", "num_chains"]:
+        if key in kwargs and kwargs[key] is not None:
+            kwargs[key] = int(kwargs[key])
+
     model = PMFDark(
         model_type=model_type,
         num_factors=num_factors,
