@@ -1,6 +1,6 @@
 [project]
 name = "pmf-dark"
-version = "0.2.3"
+version = "0.2.4"
 description = "Modelling species dark diversity using bayesian Probabilistic Matrix Factorisation"
 authors = [
     {name = "davidyshen",email = "contact@davidyshen.com"}
