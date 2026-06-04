@@ -102,6 +102,8 @@ model = PMFDark(
 )
 
 # 2. Fit the model once using the built-in demo datasets (env and survey)
+## env contains the column landuse, which is a driver of dark diversity. We need to drop it from the modelling data
+env = env.drop(columns=["landuse"])
 model.fit(
     y=survey,                # Loaded directly as a pandas DataFrame
     x=env,                   # Loaded directly as a pandas DataFrame
