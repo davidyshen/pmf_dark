@@ -34,6 +34,10 @@ def observation_dist(eta, y_type):
 
 
 def linear_model(X, Y, num_factors, y_type="presence_absence", batch_size=None):
+    num_factors = int(num_factors)
+    if batch_size is not None:
+        batch_size = int(batch_size)
+
     device = X.device
 
     n_sites, n_species = Y.shape
@@ -91,6 +95,10 @@ def linear_model(X, Y, num_factors, y_type="presence_absence", batch_size=None):
 def gaussian(
     X, Y, num_factors, y_type="presence_absence", batch_size=None
 ):
+    num_factors = int(num_factors)
+    if batch_size is not None:
+        batch_size = int(batch_size)
+
     device = X.device
 
     n_sites, n_species = Y.shape
@@ -158,6 +166,11 @@ def gaussian(
 def bnn_model(
     X, Y, num_factors=1, y_type="presence_absence", hidden_size=10, batch_size=None
 ):
+    num_factors = int(num_factors)
+    hidden_size = int(hidden_size)
+    if batch_size is not None:
+        batch_size = int(batch_size)
+
     device = X.device
 
     n_sites, n_species = Y.shape

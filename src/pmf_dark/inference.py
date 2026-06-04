@@ -22,6 +22,12 @@ def fit_svi(
     **kwargs,
 ):
 
+    num_factors = int(num_factors)
+    num_iterations = int(num_iterations)
+    num_samples = int(num_samples)
+    if batch_size is not None:
+        batch_size = int(batch_size)
+
     device = torch.device("cuda" if cuda and torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
@@ -84,6 +90,13 @@ def fit_mcmc(
     num_chains=1,
     batch_size=None,
 ):
+    num_factors = int(num_factors)
+    num_samples = int(num_samples)
+    warmup_steps = int(warmup_steps)
+    num_chains = int(num_chains)
+    if batch_size is not None:
+        batch_size = int(batch_size)
+
     if batch_size is not None:
         raise ValueError(
             "MCMC does not support mini-batching. Please use SVI (method='svi') or set batch_size=None."
