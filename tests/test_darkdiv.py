@@ -105,6 +105,25 @@ class TestDarkDiv(unittest.TestCase):
                 batch_size=10,
             )
 
+    def test_mcmc_unexpected_kwargs(self):
+        # MCMC should run and ignore SVI-specific keyword arguments without raising TypeError
+        # We run with very few samples and warmup steps so it runs quickly
+        model = PMFDark(
+            model_type="linear",
+            num_factors=1,
+            method="mcmc",
+        )
+        model.fit(
+            y=self.y_binary,
+            x=self.x,
+            num_samples=2,
+            warmup_steps=2,
+            num_iterations=2500,  # SVI parameter, should be ignored
+            lr=0.01,              # SVI parameter, should be ignored
+        )
+        self.assertTrue(model.is_fitted)
+        self.assertEqual(model.distribution().shape, self.y_binary.shape)
+
     def test_svi_predictions_shape_and_chunking(self):
         # Fix seeds for reproducibility
         torch.manual_seed(42)

@@ -89,6 +89,7 @@ def fit_mcmc(
     warmup_steps=500,
     num_chains=1,
     batch_size=None,
+    **kwargs,
 ):
     num_factors = int(num_factors)
     num_samples = int(num_samples)
