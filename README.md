@@ -92,34 +92,24 @@ poetry install
 `pmf_dark` provides a clean object-oriented interface (`PMFDark` model class) to fit models and easily retrieve different predictions (current distribution, potential species pool, and dark diversity) without redundant model refitting.
 
 ```python
-import pandas as pd
-from pmf_dark import PMFDark
+from pmf_dark import PMFDark, env, survey
 
-# 1. Load data
-y = pd.read_csv("data/survey.csv", index_col=0)
-x = pd.read_csv("data/env.csv", index_col=0)
-
-# Drop non-species/non-environmental metadata
-coords = y[["x", "y"]]
-y = y.drop(columns=["x", "y", "ID"])
-x = x.drop(columns=["ID"])
-
-# 2. Initialize the PMFDark model
+# 1. Initialize the PMFDark model
 model = PMFDark(
     model_type="gaussian",   # Ecological response model: "linear" | "gaussian" | "bnn"
     method="svi",            # Inference method: "svi" | "mcmc"
     num_factors=2,           # Number of latent factors
 )
 
-# 3. Fit the model once
+# 2. Fit the model once using the built-in demo datasets (env and survey)
 model.fit(
-    y=y,
-    x=x,
+    y=survey,                # Loaded directly as a pandas DataFrame
+    x=env,                   # Loaded directly as a pandas DataFrame
     num_iterations=2500,     # SVI parameter
     categorical_cols=["landuse"] # Explicitly treat landuse as categorical
 )
 
-# 4. Generate predictions from the fitted model
+# 3. Generate predictions from the fitted model
 p_dist = model.distribution()  # Current species distribution (with latent factors)
 p_pool = model.pool()          # Potential species pool (counterfactual / env only)
 p_dark = model.dark()          # Dark diversity (pool prediction where species is not observed, NaN otherwise)
