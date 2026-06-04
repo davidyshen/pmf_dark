@@ -279,6 +279,18 @@ class TestDarkDiv(unittest.TestCase):
         dist_small_np = model_small_samples.distribution(return_means=False)
         self.assertEqual(dist_small_np.shape[0], 15)
 
+    def test_demo_datasets(self):
+        from pmf_dark import env, survey
+
+        self.assertIsInstance(env, pd.DataFrame)
+        self.assertIsInstance(survey, pd.DataFrame)
+        self.assertEqual(env.shape, (225, 4))
+        self.assertEqual(survey.shape, (225, 100))
+        self.assertEqual(
+            list(env.columns), ["temperature", "pH", "elevation", "landuse"]
+        )
+        self.assertTrue(all(col.startswith("sp") for col in survey.columns))
+
 
 if __name__ == "__main__":
     unittest.main()

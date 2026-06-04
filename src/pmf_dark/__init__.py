@@ -7,4 +7,25 @@ if torch.cuda.is_available():
 else:
     print("pmf-dark: CUDA is not available. Using CPU.")
 
-__all__ = ["compute_dark_diversity", "PMFDark"]
+# Lazy loading of datasets
+_cached_datasets = {}
+
+
+def __getattr__(name):
+    if name in ("env", "survey"):
+        if name not in _cached_datasets:
+            import importlib.resources
+            import pandas as pd
+
+            ref = importlib.resources.files("pmf_dark").joinpath(f"data/{name}.csv")
+            with importlib.resources.as_file(ref) as path:
+                _cached_datasets[name] = pd.read_csv(path)
+        return _cached_datasets[name]
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+
+def __dir__():
+    return sorted(list(globals().keys()) + ["env", "survey"])
+
+
+__all__ = ["compute_dark_diversity", "PMFDark", "env", "survey"]
