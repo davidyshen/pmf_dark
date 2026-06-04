@@ -62,19 +62,11 @@ def fit_svi(
     else:
         print("SVI may not have converged.")
 
-    # Dynamic return sites to exclude the large "obs" tensor from Predictive
-    return_sites = [
-        name
-        for name, node in guide.prototype_trace.nodes.items()
-        if node["type"] == "sample"
-    ]
-
-    # return samples
+    # return samples by running Predictive only on the guide
+    # (running on the model would execute the likelihood forward pass and create a huge, unused "obs" tensor)
     predictive = Predictive(
-        model,
-        guide=guide,
+        guide,
         num_samples=num_samples,
-        return_sites=return_sites,
     )
 
     samples = predictive(x, y, num_factors, y_type, batch_size=None, **kwargs)
