@@ -114,7 +114,7 @@ model.fit(
 # 3. Generate predictions from the fitted model
 p_dist = model.distribution()  # Current species distribution (with latent factors)
 p_pool = model.pool()          # Potential species pool (counterfactual / env only)
-p_dark = model.dark()          # Dark diversity (pool prediction where species is not observed, NaN otherwise)
+p_dark = model.dark()          # Dark diversity calculated as P_pool * (1.0 - P_distribution)
 ```
 
 For backward compatibility, a functional API `compute_dark_diversity` is also provided.
@@ -288,8 +288,7 @@ p_dist = model.distribution()
 p_pool = model.pool()
 
 # 3. Dark Diversity
-# Represents the potential species pool value where a species is NOT observed (i.e. where y_obs == 0).
-# Where a species is observed (y_obs > 0), the value is set to NA (NaN).
+# Represents the probabilistic dark diversity calculated as P(Pool) * (1.0 - P(Distribution))
 p_dark = model.dark()
 ```
 

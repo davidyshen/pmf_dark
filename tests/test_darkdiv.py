@@ -257,14 +257,16 @@ class TestDarkDiv(unittest.TestCase):
         self.assertEqual(pool_df.shape, self.y_binary.shape)
         self.assertEqual(dark_df.shape, self.y_binary.shape)
 
-        # Verify NA masking on DataFrame: where y is 1, dark should be NaN. Where y is 0, dark should be equal to pool.
-        for idx in self.y_binary.index:
-            for col in self.y_binary.columns:
-                obs_val = self.y_binary.loc[idx, col]
-                if obs_val > 0:
-                    self.assertTrue(np.isnan(dark_df.loc[idx, col]))
-                else:
-                    self.assertEqual(dark_df.loc[idx, col], pool_df.loc[idx, col])
+        # Verify conditional probability calculation on DataFrame:
+        # P(Dark) = P(Pool) * (1.0 - P(Distribution))
+        expected_dark_df = pool_df * (1.0 - dist_df)
+        pd.testing.assert_frame_equal(
+            dark_df,
+            expected_dark_df,
+            check_exact=False,
+            rtol=1e-5,
+            atol=1e-6,
+        )
 
         # Test Return Means = False (Numpy Arrays)
         dist_np = model.distribution(return_means=False)
@@ -278,17 +280,15 @@ class TestDarkDiv(unittest.TestCase):
         self.assertEqual(pool_np.shape[1:], self.y_binary.shape)
         self.assertEqual(dark_np.shape[1:], self.y_binary.shape)
 
-        # Verify NA masking on Numpy Array
-        n_samples = dist_np.shape[0]
-        y_np = self.y_binary.to_numpy()
-        for s in range(n_samples):
-            for i in range(self.n_sites):
-                for j in range(self.n_species):
-                    obs_val = y_np[i, j]
-                    if obs_val > 0:
-                        self.assertTrue(np.isnan(dark_np[s, i, j]))
-                    else:
-                        self.assertEqual(dark_np[s, i, j], pool_np[s, i, j])
+        # Verify conditional probability calculation on Numpy Array:
+        # P(Dark) = P(Pool) * (1.0 - P(Distribution))
+        expected_dark_np = pool_np * (1.0 - dist_np)
+        np.testing.assert_allclose(
+            dark_np,
+            expected_dark_np,
+            rtol=1e-5,
+            atol=1e-6,
+        )
 
         # Test num_samples specified in fit
         model_small_samples = PMFDark(model_type="linear", num_factors=1, method="svi")

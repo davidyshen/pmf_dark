@@ -515,9 +515,12 @@ class PMFDark:
         """
         Generate predictions of species dark diversity.
 
-        Defined as the potential species pool value (.pool()) where a species is not
-        observed in the original training data (i.e. where y == 0). Where a species
-        is observed in the original training data, the dark diversity is set to NA (NaN).
+        Defined using conditional probability:
+        P(Dark) = P(Pool) * (1.0 - P(Distribution))
+
+        Where P(Pool) is the potential species pool probability/count (counterfactual
+        predictions excluding latent factors), and P(Distribution) is the current
+        species occurrence probability/count predictions (including latent factors).
 
         Args:
             pred_batch_size (int, optional): Site-chunk size for prediction output.
@@ -525,28 +528,19 @@ class PMFDark:
                 If False, returns a NumPy array of raw posterior samples.
 
         Returns:
-            pandas.DataFrame or numpy.ndarray: Dark diversity predictions with observed entries
-                masked to NaN.
+            pandas.DataFrame or numpy.ndarray: Dark diversity predictions as a continuous
+                matrix (values between 0.0 and 1.0).
         """
         pool_pred = self.pool(
             pred_batch_size=pred_batch_size,
             return_means=return_means,
         )
+        dist_pred = self.distribution(
+            pred_batch_size=pred_batch_size,
+            return_means=return_means,
+        )
 
-        if return_means:
-            # pool_pred is a pandas DataFrame.
-            # Mask out observed entries by setting them to np.nan.
-            # We want to keep values where self.y_train == 0.
-            return pool_pred.where(self.y_train == 0, np.nan)
-        else:
-            # pool_pred is a numpy array of shape (num_samples, n_sites, n_species).
-            # self.y_train is a pandas DataFrame of shape (n_sites, n_species).
-            observed_mask = self.y_train.to_numpy() > 0
-
-            # We copy pool_pred and set the observed elements to np.nan across all samples.
-            dark_pred = np.copy(pool_pred)
-            dark_pred[:, observed_mask] = np.nan
-            return dark_pred
+        return pool_pred * (1.0 - dist_pred)
 
 
 def compute_dark_diversity(
