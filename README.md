@@ -155,12 +155,16 @@ Generates species occurrence probabilities:
 
 ```python
 p_dist = model.distribution(pred_batch_size=None, return_means=True)
-p_pool = model.pool(pred_batch_size=None, return_means=True)
-p_dark = model.dark(pred_batch_size=None, return_means=True)
+p_pool = model.pool(pred_batch_size=None, return_means=True, rescale=None)
+p_dark = model.dark(pred_batch_size=None, return_means=True, rescale=None)
 ```
 
 *   **`pred_batch_size`** *(int, optional)*: Chunk size to process sites during prediction (useful to manage memory consumption).
 *   **`return_means`** *(bool, default `True`)*: Returns a `pandas.DataFrame` of posterior means if `True`, or a NumPy `ndarray` of raw posterior samples with shape `(num_samples, n_sites, n_species)` if `False`.
+*   **`rescale`** *(str, optional)*: Rescaling option for environment-only suitability values in `pool()` and `dark()`. Must be one of:
+    - `None` (default): returns unmodified probabilities.
+    - `"normalise"`: Divides each species' suitability probabilities/counts by its maximum probability across all sites.
+    - `"nsi"`: Returns the Niche Suitability Index (NSI), calculated as $\exp(\text{env\_effect})$. **Only supported for the Gaussian model (`model_type="gaussian"`)**; using NSI on linear or BNN models will raise a `ValueError`.
 
 ---
 
@@ -179,6 +183,7 @@ compute_dark_diversity(
     batch_size=None,        # Mini-batch size for SVI training (default: None)
     pred_batch_size=None,   # Site-chunk size for prediction output (default: None)
     categorical_cols=None,  # Explicit list of columns to treat as categorical variables
+    rescale=None,           # Rescaling option for pool predictions ("normalise" or "nsi")
     **kwargs,               # Extra model/method specific arguments
 )
 ```
@@ -198,6 +203,7 @@ compute_dark_diversity(
 | `batch_size` | int | `None` | Mini-batch size for SVI training (None fits all data in one step). |
 | `pred_batch_size` | int | `None` | Site-chunk size for prediction output (None uses full-batch prediction). |
 | `categorical_cols` | list | `None` | Explicit list of column names in `x` to treat as categorical variables (e.g. label-encoded integers). |
+| `rescale` | str | `None` | Rescaling option for pool predictions: `None`, `"normalise"`, or `"nsi"` (Gaussian only). |
 
 #### Method-Specific Arguments (`**kwargs`)
 

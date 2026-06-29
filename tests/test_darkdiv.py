@@ -332,6 +332,62 @@ class TestDarkDiv(unittest.TestCase):
         )
         self.assertTrue(all(col.startswith("sp") for col in survey.columns))
 
+    def test_rescale_options(self):
+        # Fit a Gaussian model
+        model_gaussian = PMFDark(model_type="gaussian", num_factors=1, method="svi")
+        model_gaussian.fit(y=self.y_binary, x=self.x, num_iterations=10)
+
+        # 1. Test normalise option (DataFrame and NumPy)
+        pool_unscaled_df = model_gaussian.pool(return_means=True, rescale=None)
+        pool_norm_df = model_gaussian.pool(return_means=True, rescale="normalise")
+
+        # Verify columns are divided by their maximums
+        for col in pool_norm_df.columns:
+            max_val = pool_unscaled_df[col].max()
+            if max_val > 0:
+                np.testing.assert_allclose(pool_norm_df[col], pool_unscaled_df[col] / max_val)
+                # Max value should be exactly 1.0
+                self.assertAlmostEqual(pool_norm_df[col].max(), 1.0)
+
+        # Test normalise option with NumPy array output
+        pool_unscaled_np = model_gaussian.pool(return_means=False, rescale=None)
+        pool_norm_np = model_gaussian.pool(return_means=False, rescale="normalise")
+
+        max_vals_np = pool_unscaled_np.max(axis=1, keepdims=True)
+        max_vals_np = np.where(max_vals_np == 0, 1.0, max_vals_np)
+        expected_norm_np = pool_unscaled_np / max_vals_np
+        np.testing.assert_allclose(pool_norm_np, expected_norm_np)
+
+        # 2. Test nsi option (DataFrame and NumPy)
+        pool_nsi_df = model_gaussian.pool(return_means=True, rescale="nsi")
+        self.assertEqual(pool_nsi_df.shape, self.y_binary.shape)
+        # NSI must be between 0 and 1 (exponential of a negative sum)
+        self.assertTrue((pool_nsi_df >= 0).all().all())
+        self.assertTrue((pool_nsi_df <= 1.0).all().all())
+
+        pool_nsi_np = model_gaussian.pool(return_means=False, rescale="nsi")
+        self.assertEqual(pool_nsi_np.shape, pool_unscaled_np.shape)
+        self.assertTrue((pool_nsi_np >= 0).all())
+        self.assertTrue((pool_nsi_np <= 1.0).all())
+
+        # Test dark with rescale="nsi"
+        dark_nsi_df = model_gaussian.dark(return_means=True, rescale="nsi")
+        dist_df = model_gaussian.distribution(return_means=True)
+        expected_dark_nsi = pool_nsi_df * (1.0 - dist_df)
+        pd.testing.assert_frame_equal(dark_nsi_df, expected_dark_nsi)
+
+        # 3. Test nsi constraints with non-Gaussian model
+        model_linear = PMFDark(model_type="linear", num_factors=1, method="svi")
+        model_linear.fit(y=self.y_binary, x=self.x, num_iterations=5)
+
+        with self.assertRaises(ValueError) as ctx:
+            model_linear.pool(rescale="nsi")
+        self.assertEqual(str(ctx.exception), "nsi is not allowed for non-gaussian models")
+
+        with self.assertRaises(ValueError) as ctx:
+            model_linear.dark(rescale="nsi")
+        self.assertEqual(str(ctx.exception), "nsi is not allowed for non-gaussian models")
+
 
 if __name__ == "__main__":
     unittest.main()

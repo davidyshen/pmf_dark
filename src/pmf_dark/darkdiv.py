@@ -137,8 +137,11 @@ def prepare_data(x, y, categorical_cols=None, cuda=False):
 
 
 def compute_predictions(
-    samples, x, model_type="gaussian", include_latent=True, y_type="presence_absence"
+    samples, x, model_type="gaussian", include_latent=True, y_type="presence_absence", return_nsi=False
 ):
+
+    if return_nsi and model_type != "gaussian":
+        raise ValueError("nsi is not allowed for non-gaussian models")
 
     if model_type == "linear":
         alpha = samples["alpha"].squeeze(1)
@@ -155,6 +158,9 @@ def compute_predictions(
         # gamma: [samples, env, species]
         diff = x[None, :, :, None] - mu[:, None, :, :]
         env_effect = -torch.sum(gamma[:, None, :, :] * diff**2, dim=2)
+
+        if return_nsi:
+            return torch.exp(env_effect)
 
         eta = alpha[:, None, :] + env_effect
 
@@ -372,6 +378,7 @@ class PMFDark:
         include_latent=True,
         pred_batch_size=None,
         return_means=True,
+        return_nsi=False,
     ):
         """
         Internal method to generate species predictions from the fitted model.
@@ -382,6 +389,7 @@ class PMFDark:
             pred_batch_size (int, optional): Site-chunk size for chunked predictions.
             return_means (bool): If True, returns posterior means. If False, returns
                 full posterior samples.
+            return_nsi (bool): If True, returns the Niche Suitability Index (Gaussian only).
 
         Returns:
             pandas.DataFrame or numpy.ndarray: Species presence probability or count predictions.
@@ -426,6 +434,7 @@ class PMFDark:
                     model_type=model_type,
                     include_latent=include_latent,
                     y_type=y_type,
+                    return_nsi=return_nsi,
                 )
 
                 if return_means:
@@ -454,6 +463,7 @@ class PMFDark:
                 model_type=model_type,
                 include_latent=include_latent,
                 y_type=y_type,
+                return_nsi=return_nsi,
             )
             if return_means:
                 pred = pred.mean(dim=0)
@@ -490,9 +500,10 @@ class PMFDark:
             return_means=return_means,
         )
 
-    def pool(self, pred_batch_size=None, return_means=True):
+    def pool(self, pred_batch_size=None, return_means=True, rescale=None):
         """
-        Generate counterfactual environment-only predictions (excluding latent factors).
+        Generate counterfactual environment-only predictions (excluding latent factors),
+        optionally rescaled.
 
         Represents the potential species pool (suitable habitat if the unmeasured
         limitation drivers/stressors were not there).
@@ -501,17 +512,47 @@ class PMFDark:
             pred_batch_size (int, optional): Site-chunk size for prediction output.
             return_means (bool): If True, returns a pandas.DataFrame of posterior means.
                 If False, returns a NumPy array of raw posterior samples.
+            rescale (str, optional): Rescaling option. If "normalise", divides each
+                species' pool probabilities by its maximum probability across all sites.
+                If "nsi", returns the niche suitability index (NSI, only for Gaussian models).
+                Defaults to None (no scaling).
 
         Returns:
             pandas.DataFrame or numpy.ndarray: Counterfactual presence probability or count predictions.
         """
-        return self._predict(
+        if rescale not in [None, "normalise", "nsi"]:
+            raise ValueError(f"Unknown rescale option: {rescale}. Must be one of: [None, 'normalise', 'nsi']")
+
+        if rescale == "nsi":
+            if self.model_type != "gaussian":
+                raise ValueError("nsi is not allowed for non-gaussian models")
+            return self._predict(
+                include_latent=False,
+                pred_batch_size=pred_batch_size,
+                return_means=return_means,
+                return_nsi=True,
+            )
+
+        pool_pred = self._predict(
             include_latent=False,
             pred_batch_size=pred_batch_size,
             return_means=return_means,
+            return_nsi=False,
         )
 
-    def dark(self, pred_batch_size=None, return_means=True):
+        if rescale == "normalise":
+            if return_means:
+                max_vals = pool_pred.max(axis=0)
+                max_vals = np.where(max_vals == 0, 1.0, max_vals)
+                pool_pred = pool_pred / max_vals
+            else:
+                max_vals = pool_pred.max(axis=1, keepdims=True)
+                max_vals = np.where(max_vals == 0, 1.0, max_vals)
+                pool_pred = pool_pred / max_vals
+
+        return pool_pred
+
+    def dark(self, pred_batch_size=None, return_means=True, rescale=None):
         """
         Generate predictions of species dark diversity.
 
@@ -526,6 +567,8 @@ class PMFDark:
             pred_batch_size (int, optional): Site-chunk size for prediction output.
             return_means (bool): If True, returns a pandas.DataFrame of posterior means.
                 If False, returns a NumPy array of raw posterior samples.
+            rescale (str, optional): Rescaling option passed to pool calculation.
+                Options: "normalise" or "nsi".
 
         Returns:
             pandas.DataFrame or numpy.ndarray: Dark diversity predictions as a continuous
@@ -534,6 +577,7 @@ class PMFDark:
         pool_pred = self.pool(
             pred_batch_size=pred_batch_size,
             return_means=return_means,
+            rescale=rescale,
         )
         dist_pred = self.distribution(
             pred_batch_size=pred_batch_size,
@@ -555,6 +599,7 @@ def compute_dark_diversity(
     batch_size=None,
     pred_batch_size=None,
     categorical_cols=None,
+    rescale=None,
     **kwargs,
 ):
     """
@@ -575,6 +620,7 @@ def compute_dark_diversity(
         batch_size (int, optional): Mini-batch size for training.
         pred_batch_size (int, optional): Site-chunk size for predictions.
         categorical_cols (list, optional): Explicit list of columns to treat as categorical.
+        rescale (str, optional): Rescaling option for pool predictions ("normalise" or "nsi").
         **kwargs: Extra model/method specific arguments (e.g. lr, num_iterations, num_samples).
 
     Returns:
@@ -614,4 +660,5 @@ def compute_dark_diversity(
         return model.pool(
             pred_batch_size=pred_batch_size,
             return_means=return_means,
+            rescale=rescale,
         )
